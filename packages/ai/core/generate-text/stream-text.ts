@@ -1228,6 +1228,11 @@ class DefaultStreamTextResult<TOOLS extends ToolSet, OUTPUT, PARTIAL_OUTPUT>
                       break;
                     }
 
+                    case 'tool_call_max_tokens_finish': {
+                      controller.enqueue(chunk);
+                      break;
+                    }
+
                     case 'response-metadata': {
                       stepResponse = {
                         id: chunk.id ?? stepResponse.id,
@@ -1749,6 +1754,16 @@ However, the LLM results are expected to be small enough to not cause issues.
                         completionTokens: chunk.usage.completionTokens,
                       }
                     : undefined,
+                }),
+              );
+              break;
+            }
+
+            case 'tool_call_max_tokens_finish': {
+              controller.enqueue(
+                formatDataStreamPart('tool_call_max_tokens_finish', {
+                  toolCallId: chunk.toolCallId,
+                  toolName: chunk.toolName,
                 }),
               );
               break;
