@@ -139,6 +139,8 @@ export function runToolsTransformation<TOOLS extends ToolSet>({
     }
   }
 
+  let toolCallId = "";
+  let toolName = "";
   // forward stream
   const forwardStream = new TransformStream<
     LanguageModelV1StreamPart,
@@ -177,6 +179,8 @@ export function runToolsTransformation<TOOLS extends ToolSet>({
 
         // forward with less information:
         case 'tool-call-delta': {
+          toolCallId = chunk.toolCallId;
+          toolName = chunk.toolName;
           if (toolCallStreaming) {
             if (!activeToolCalls[chunk.toolCallId]) {
               controller.enqueue({
@@ -200,6 +204,8 @@ export function runToolsTransformation<TOOLS extends ToolSet>({
 
         // process tool call:
         case 'tool-call': {
+          toolCallId = chunk.toolCallId;
+          toolName = chunk.toolName;
           try {
             const toolCall = await parseToolCall({
               toolCall: chunk,
@@ -308,6 +314,15 @@ export function runToolsTransformation<TOOLS extends ToolSet>({
             usage: calculateLanguageModelUsage(chunk.usage),
             experimental_providerMetadata: chunk.providerMetadata,
           };
+          if (chunk.finishReason === "length") {
+            controller.enqueue({
+              type: "tool_call_max_tokens_finish" as any,
+              toolCallId,
+              toolName,
+            });
+          }
+          toolCallId = "";
+          toolName = "";
           break;
         }
 
@@ -333,6 +348,7 @@ export function runToolsTransformation<TOOLS extends ToolSet>({
         generatorStream.pipeThrough(forwardStream).pipeTo(
           new WritableStream({
             write(chunk) {
+              
               controller.enqueue(chunk);
             },
             close() {

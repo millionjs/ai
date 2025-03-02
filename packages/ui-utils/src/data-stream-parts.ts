@@ -187,6 +187,37 @@ const toolCallDeltaStreamPart: DataStreamPart<
   },
 };
 
+const toolCallMaxTokensFinishStreamPart: DataStreamPart<
+  'max',
+  'tool_call_max_tokens_finish',
+  { toolCallId: string; toolName: string }
+> = {
+  code: 'max',
+  name: 'tool_call_max_tokens_finish',
+  parse: (value: JSONValue) => {
+    if (
+      value == null ||
+      typeof value !== 'object' ||
+      !('toolCallId' in value) ||
+      typeof value.toolCallId !== 'string' ||
+      !('toolName' in value) ||
+      typeof value.toolName !== 'string'
+    ) {
+      throw new Error(
+        '"tool_call_max_tokens_finish" parts expect an object with a "toolCallId" and "toolName" property.',
+      );
+    }
+
+    return {
+      type: 'tool_call_max_tokens_finish',
+      value: value as unknown as {
+        toolCallId: string;
+        toolName: string;
+      },
+    };
+  },
+};
+
 const finishMessageStreamPart: DataStreamPart<
   'd',
   'finish_message',
@@ -464,6 +495,7 @@ const dataStreamParts = [
   redactedReasoningStreamPart,
   reasoningSignatureStreamPart,
   fileStreamPart,
+  toolCallMaxTokensFinishStreamPart,
 ] as const;
 
 export const dataStreamPartsByCode = Object.fromEntries(
