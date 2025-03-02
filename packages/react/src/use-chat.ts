@@ -261,6 +261,7 @@ By default, it's set to 1, which means that only a single LLM call is made.
       const maxStep = extractMaxToolInvocationStep(
         chatMessages[chatMessages.length - 1]?.toolInvocations,
       );
+      let lastMessage = chatMessages.at(-1)!;
 
       try {
         const abortController = new AbortController();
@@ -350,7 +351,10 @@ By default, it's set to 1, which means that only a single LLM call is made.
             }
           },
           onToolCall,
-          onFinish,
+          onFinish(message, options) {
+            onFinish?.(message, options);
+            lastMessage = message as UIMessage;
+          },
           generateId,
           fetch,
           lastMessage: chatMessages[chatMessages.length - 1],
@@ -386,9 +390,12 @@ By default, it's set to 1, which means that only a single LLM call is made.
           originalMessageCount: messageCount,
           maxSteps,
           messages,
-          lastMessage: messages[messages.length - 1],
+          lastMessage,
         })
       ) {
+        if (lastMessage) {
+          messages[messages.length - 1] = lastMessage;
+        }
         await triggerRequest({ messages });
       }
     },
