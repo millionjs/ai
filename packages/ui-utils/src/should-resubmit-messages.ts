@@ -6,14 +6,15 @@ export function shouldResubmitMessages({
   originalMessageCount,
   maxSteps,
   messages,
+  lastMessage,
 }: {
   originalMaxToolInvocationStep: number | undefined;
   originalMessageCount: number;
   maxSteps: number;
   messages: UIMessage[];
+  lastMessage: UIMessage;
 }) {
-  const lastMessage = messages[messages.length - 1];
-  return (
+  const result = (
     // check if the feature is enabled:
     maxSteps > 1 &&
     // ensure there is a last message:
@@ -24,11 +25,32 @@ export function shouldResubmitMessages({
         originalMaxToolInvocationStep) &&
     // check that next step is possible:
     isAssistantMessageWithCompletedToolCalls(lastMessage) &&
+    !hasNoTextAndNoParts(lastMessage) &&
     // check that assistant has not answered yet:
-    !isLastToolInvocationFollowedByText(lastMessage) &&
+    // !isLastToolInvocationFollowedByText(lastMessage) &&
     // limit the number of automatic steps:
     (extractMaxToolInvocationStep(lastMessage.toolInvocations) ?? 0) < maxSteps
   );
+  console.log('shouldResubmitMessages', {
+    maxSteps,
+    lastMessage,
+    originalMessageCount,
+    originalMaxToolInvocationStep,
+    messages,
+  }, {
+    maxStepsResult: maxSteps > 1,
+    lastMessageResult: lastMessage != null,
+    messagesResult: messages.length > originalMessageCount || extractMaxToolInvocationStep(lastMessage.toolInvocations) !== originalMaxToolInvocationStep,
+    isAssistantMessageWithCompletedToolCallsResult: isAssistantMessageWithCompletedToolCalls(lastMessage),
+    hasNoTextAndNoPartsResult: !hasNoTextAndNoParts(lastMessage),
+    extractMaxToolInvocationStepResult: (extractMaxToolInvocationStep(lastMessage.toolInvocations) ?? 0) < maxSteps,
+    result
+  });
+  return result;
+}
+
+function hasNoTextAndNoParts(message: UIMessage) {
+  return message.content === "" && message.parts.length === 0;
 }
 
 function isLastToolInvocationFollowedByText(message: UIMessage) {

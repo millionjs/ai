@@ -87,6 +87,7 @@ export function runToolsTransformation<TOOLS extends ToolSet>({
   messages,
   abortSignal,
   repairToolCall,
+  logOriginalPrompt,
 }: {
   tools: TOOLS | undefined;
   generatorStream: ReadableStream<LanguageModelV1StreamPart>;
@@ -97,6 +98,7 @@ export function runToolsTransformation<TOOLS extends ToolSet>({
   messages: CoreMessage[];
   abortSignal: AbortSignal | undefined;
   repairToolCall: ToolCallRepairFunction<TOOLS> | undefined;
+  logOriginalPrompt?: boolean;
 }): ReadableStream<SingleRequestTextStreamPart<TOOLS>> {
   // tool results stream
   let toolResultsStreamController: ReadableStreamDefaultController<
