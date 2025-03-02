@@ -4,6 +4,7 @@ import type {
   CreateMessage,
   JSONValue,
   Message,
+  ToolInvocation,
   UIMessage,
   UseChatOptions,
 } from '@ai-sdk/ui-utils';
@@ -170,10 +171,12 @@ A maximum number is required to prevent infinite loops in the case of misconfigu
 By default, it's set to 1, which means that only a single LLM call is made.
  */
   maxSteps?: number;
+
   onToolCallMaxTokensFinish?: (options: {
     type: 'tool_call_max_tokens_finish';
     toolCallId: string;
     toolName: string;
+    toolInvocation: ToolInvocation;
   }) => void;
 } = {}): UseChatHelpers & {
   addToolResult: ({
