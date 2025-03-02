@@ -42,7 +42,7 @@ export async function processChatResponse({
   getCurrentDate?: () => Date;
   lastMessage: UIMessage | undefined;
   onToolCallMaxTokensFinish?: (options: {
-    type: 'tool_call_max_tokens_finish';
+    type: 'tool-call-max-tokens-finish';
     toolCallId: string;
     toolName: string;
     toolInvocation: ToolInvocation;
@@ -395,13 +395,19 @@ export async function processChatResponse({
 
       const { value: partialArgs } = parsePartialJson(partialToolCall.text);
 
+      let error = `One of the tool call arguments was too long. Try recalling the tool with a shorter parameter.`
+      if (value.toolName === 'edit_code') {
+        error = `One of the tool call arguments was too long, most likely code_edit. Try recalling the tool with a shorter edit. You can write half of code_edit in this tool call and the other half in the next one.`
+      }
       const invocation = {
-        state: 'max-tokens',
+        state: 'result',
         step: partialToolCall.step,
         toolCallId: value.toolCallId,
         toolName: value.toolName,
         args: partialArgs,
-        result: null,
+        result: {
+          max_tokens_error: error,
+        },
       } as const;
 
       message.toolInvocations![partialToolCall.index] = invocation;
@@ -411,7 +417,7 @@ export async function processChatResponse({
       execUpdate();
 
       onToolCallMaxTokensFinish?.({
-        type: 'tool_call_max_tokens_finish',
+        type: 'tool-call-max-tokens-finish',
         toolCallId: value.toolCallId,
         toolName: value.toolName,
         toolInvocation: invocation,

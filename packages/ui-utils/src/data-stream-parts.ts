@@ -189,11 +189,11 @@ const toolCallDeltaStreamPart: DataStreamPart<
 
 const toolCallMaxTokensFinishStreamPart: DataStreamPart<
   'max',
-  'tool_call_max_tokens_finish',
+  'tool-call-max-tokens-finish',
   { toolCallId: string; toolName: string }
 > = {
   code: 'max',
-  name: 'tool_call_max_tokens_finish',
+  name: 'tool-call-max-tokens-finish',
   parse: (value: JSONValue) => {
     if (
       value == null ||
@@ -204,12 +204,12 @@ const toolCallMaxTokensFinishStreamPart: DataStreamPart<
       typeof value.toolName !== 'string'
     ) {
       throw new Error(
-        '"tool_call_max_tokens_finish" parts expect an object with a "toolCallId" and "toolName" property.',
+        '"tool-call-max-tokens-finish" parts expect an object with a "toolCallId" and "toolName" property.',
       );
     }
 
     return {
-      type: 'tool_call_max_tokens_finish',
+      type: 'tool-call-max-tokens-finish',
       value: value as unknown as {
         toolCallId: string;
         toolName: string;

@@ -173,7 +173,7 @@ By default, it's set to 1, which means that only a single LLM call is made.
   maxSteps?: number;
 
   onToolCallMaxTokensFinish?: (options: {
-    type: 'tool_call_max_tokens_finish';
+    type: 'tool-call-max-tokens-finish';
     toolCallId: string;
     toolName: string;
     toolInvocation: ToolInvocation;
