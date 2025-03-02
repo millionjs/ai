@@ -79,6 +79,11 @@ export type SingleRequestTextStreamPart<TOOLS extends ToolSet> =
   | {
       type: 'error';
       error: unknown;
+    }
+  | {
+      type: 'tool_call_max_tokens_finish';
+      toolCallId: string;
+      toolName: string;
     };
 
 export function runToolsTransformation<TOOLS extends ToolSet>({
