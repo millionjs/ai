@@ -21,7 +21,8 @@ It is optional for backwards compatibility.
 export type ToolInvocation =
   | ({ state: 'partial-call'; step?: number } & ToolCall<string, any>)
   | ({ state: 'call'; step?: number } & ToolCall<string, any>)
-  | ({ state: 'result'; step?: number } & ToolResult<string, any, any>);
+  | ({ state: 'result'; step?: number } & ToolResult<string, any, any>)
+  | ({ state: 'max-tokens'; step?: number } & ToolResult<string, any, any>);
 
 /**
  * An attachment that can be sent along with a message.
