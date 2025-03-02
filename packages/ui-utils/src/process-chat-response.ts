@@ -20,6 +20,7 @@ export async function processChatResponse({
   stream,
   update,
   onToolCall,
+  onToolCallMaxTokensFinish,
   onFinish,
   generateId = generateIdFunction,
   getCurrentDate = () => new Date(),
@@ -40,6 +41,11 @@ export async function processChatResponse({
   generateId?: () => string;
   getCurrentDate?: () => Date;
   lastMessage: UIMessage | undefined;
+  onToolCallMaxTokensFinish?: (options: {
+    type: 'tool_call_max_tokens_finish';
+    toolCallId: string;
+    toolName: string;
+  }) => void;
 }) {
   const replaceLastMessage = lastMessage?.role === 'assistant';
   let step = replaceLastMessage
@@ -381,6 +387,17 @@ export async function processChatResponse({
     },
     onErrorPart(error) {
       throw new Error(error);
+    },
+    onToolCallMaxTokensFinishPart(value: {
+      type: 'tool_call_max_tokens_finish';
+      toolCallId: string;
+      toolName: string;
+    }) {
+      onToolCallMaxTokensFinish?.({
+        type: 'tool_call_max_tokens_finish',
+        toolCallId: value.toolCallId,
+        toolName: value.toolName,
+      });
     },
   });
 
