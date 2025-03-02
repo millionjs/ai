@@ -128,6 +128,7 @@ export function useChat({
   fetch,
   keepLastMessageOnError = true,
   experimental_throttle: throttleWaitMs,
+  onToolCallMaxTokensFinish
 }: UseChatOptions & {
   key?: string;
 
@@ -162,6 +163,11 @@ A maximum number is required to prevent infinite loops in the case of misconfigu
 By default, it's set to 1, which means that only a single LLM call is made.
  */
   maxSteps?: number;
+  onToolCallMaxTokensFinish?: (options: {
+    type: 'tool_call_max_tokens_finish';
+    toolCallId: string;
+    toolName: string;
+  }) => void;
 } = {}): UseChatHelpers & {
   addToolResult: ({
     toolCallId,
@@ -341,6 +347,7 @@ By default, it's set to 1, which means that only a single LLM call is made.
           generateId,
           fetch,
           lastMessage: chatMessages[chatMessages.length - 1],
+          onToolCallMaxTokensFinish,
         });
 
         abortControllerRef.current = null;
@@ -399,6 +406,7 @@ By default, it's set to 1, which means that only a single LLM call is made.
       keepLastMessageOnError,
       throttleWaitMs,
       chatId,
+      onToolCallMaxTokensFinish
     ],
   );
 

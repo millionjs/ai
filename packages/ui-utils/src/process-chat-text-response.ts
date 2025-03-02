@@ -9,7 +9,7 @@ export async function processChatTextResponse({
   onFinish,
   getCurrentDate = () => new Date(),
   generateId = generateIdFunction,
-}: {
+ }: {
   stream: ReadableStream<Uint8Array>;
   update: (options: {
     message: UIMessage;

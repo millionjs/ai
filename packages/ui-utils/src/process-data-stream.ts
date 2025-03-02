@@ -33,6 +33,7 @@ export async function processDataStream({
   onFinishMessagePart,
   onFinishStepPart,
   onStartStepPart,
+  onToolCallMaxTokensFinishPart
 }: {
   stream: ReadableStream<Uint8Array>;
   onTextPart?: (
@@ -83,6 +84,9 @@ export async function processDataStream({
   ) => Promise<void> | void;
   onStartStepPart?: (
     streamPart: (DataStreamPartType & { type: 'start_step' })['value'],
+  ) => Promise<void> | void;
+  onToolCallMaxTokensFinishPart?: (
+    streamPart: (DataStreamPartType & { type: 'tool_call_max_tokens_finish' })['value'],
   ) => Promise<void> | void;
 }): Promise<void> {
   // implementation note: this slightly more complex algorithm is required
@@ -164,6 +168,9 @@ export async function processDataStream({
           break;
         case 'start_step':
           await onStartStepPart?.(value);
+          break;
+        case 'tool_call_max_tokens_finish':
+          await onToolCallMaxTokensFinishPart?.(value);
           break;
         default: {
           const exhaustiveCheck: never = type;

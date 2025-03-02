@@ -20,6 +20,7 @@ export async function callChatApi({
   generateId,
   fetch = getOriginalFetch(),
   lastMessage,
+  onToolCallMaxTokensFinish,
 }: {
   api: string;
   body: Record<string, any>;
@@ -39,6 +40,11 @@ export async function callChatApi({
   generateId: IdGenerator;
   fetch: ReturnType<typeof getOriginalFetch> | undefined;
   lastMessage: UIMessage | undefined;
+  onToolCallMaxTokensFinish?: (options: {
+    type: 'tool_call_max_tokens_finish';
+    toolCallId: string;
+    toolName: string;
+  }) => void;
 }) {
   const response = await fetch(api, {
     method: 'POST',
@@ -95,6 +101,7 @@ export async function callChatApi({
             onFinish(message, { usage, finishReason });
           }
         },
+        onToolCallMaxTokensFinish,
         generateId,
       });
       return;
