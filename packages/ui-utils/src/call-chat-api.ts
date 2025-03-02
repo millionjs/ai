@@ -41,7 +41,7 @@ export async function callChatApi({
   fetch: ReturnType<typeof getOriginalFetch> | undefined;
   lastMessage: UIMessage | undefined;
   onToolCallMaxTokensFinish?: (options: {
-    type: 'tool_call_max_tokens_finish';
+    type: 'tool-call-max-tokens-finish';
     toolCallId: string;
     toolName: string;
     toolInvocation: ToolInvocation;

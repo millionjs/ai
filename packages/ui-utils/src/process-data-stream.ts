@@ -90,7 +90,7 @@ export async function processDataStream({
     streamPart: (DataStreamPartType & { type: 'start_step' })['value'],
   ) => Promise<void> | void;
   onToolCallMaxTokensFinishPart?: (
-    streamPart: (DataStreamPartType & { type: 'tool_call_max_tokens_finish' })['value'],
+    streamPart: (DataStreamPartType & { type: 'tool-call-max-tokens-finish' })['value'],
   ) => Promise<void> | void;
 }): Promise<void> {
   // implementation note: this slightly more complex algorithm is required
@@ -176,7 +176,7 @@ export async function processDataStream({
         case 'start_step':
           await onStartStepPart?.(value);
           break;
-        case 'tool_call_max_tokens_finish':
+        case 'tool-call-max-tokens-finish':
           await onToolCallMaxTokensFinishPart?.(value);
           break;
         default: {
