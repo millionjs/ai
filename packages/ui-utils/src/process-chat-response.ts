@@ -47,17 +47,18 @@ export async function processChatResponse({
     toolName: string;
   }) => void;
 }) {
-  const replaceLastMessage = lastMessage?.role === 'assistant';
+  const replaceLastMessage = false;
+  // const replaceLastMessage = lastMessage?.role === 'assistant';
   let step = replaceLastMessage
     ? 1 +
       // find max step in existing tool invocations:
-      (lastMessage.toolInvocations?.reduce((max, toolInvocation) => {
+      (lastMessage!.toolInvocations?.reduce((max, toolInvocation) => {
         return Math.max(max, toolInvocation.step ?? 0);
       }, 0) ?? 0)
     : 0;
 
   const message: UIMessage = replaceLastMessage
-    ? structuredClone(lastMessage)
+    ? structuredClone(lastMessage!)
     : {
         id: generateId(),
         createdAt: getCurrentDate(),
@@ -388,11 +389,7 @@ export async function processChatResponse({
     onErrorPart(error) {
       throw new Error(error);
     },
-    onToolCallMaxTokensFinishPart(value: {
-      type: 'tool_call_max_tokens_finish';
-      toolCallId: string;
-      toolName: string;
-    }) {
+    onToolCallMaxTokensFinishPart(value) {
       onToolCallMaxTokensFinish?.({
         type: 'tool_call_max_tokens_finish',
         toolCallId: value.toolCallId,
