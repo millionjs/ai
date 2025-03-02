@@ -225,6 +225,7 @@ export function streamText<
     generateId = originalGenerateId,
     currentDate = () => new Date(),
   } = {},
+  logOriginalPrompt,
   ...settings
 }: CallSettings &
   Prompt & {
@@ -350,6 +351,11 @@ Internal. For test use only. May change without notice.
       generateId?: IDGenerator;
       currentDate?: () => Date;
     };
+
+    /**
+    Log the original prompt.
+     */
+    logOriginalPrompt?: boolean;
   }): StreamTextResult<TOOLS, PARTIAL_OUTPUT> {
   if (typeof model === 'string' || model.specificationVersion !== 'v1') {
     throw new UnsupportedModelVersionError();
@@ -383,6 +389,7 @@ Internal. For test use only. May change without notice.
     currentDate,
     generateId,
     generateMessageId,
+    logOriginalPrompt,
   });
 }
 
@@ -557,6 +564,7 @@ class DefaultStreamTextResult<TOOLS extends ToolSet, OUTPUT, PARTIAL_OUTPUT>
     onError,
     onFinish,
     onStepFinish,
+    logOriginalPrompt,
   }: {
     model: LanguageModel;
     telemetry: TelemetrySettings | undefined;
@@ -587,6 +595,8 @@ class DefaultStreamTextResult<TOOLS extends ToolSet, OUTPUT, PARTIAL_OUTPUT>
     onError: undefined | StreamTextOnErrorCallback;
     onFinish: undefined | StreamTextOnFinishCallback<TOOLS>;
     onStepFinish: undefined | StreamTextOnStepFinishCallback<TOOLS>;
+
+    logOriginalPrompt?: boolean;
   }) {
     if (maxSteps < 1) {
       throw new InvalidArgumentError({
@@ -982,6 +992,10 @@ class DefaultStreamTextResult<TOOLS extends ToolSet, OUTPUT, PARTIAL_OUTPUT>
             modelSupportsImageUrls: model.supportsImageUrls,
             modelSupportsUrl: model.supportsUrl?.bind(model), // support 'this' context
           });
+
+          if (logOriginalPrompt) {
+            console.log('original prompt', JSON.stringify(promptMessages, null, 2));
+          }
 
           const mode = {
             type: 'regular' as const,
