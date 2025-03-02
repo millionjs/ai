@@ -1247,7 +1247,7 @@ class DefaultStreamTextResult<TOOLS extends ToolSet, OUTPUT, PARTIAL_OUTPUT>
                       break;
                     }
 
-                    case 'tool_call_max_tokens_finish': {
+                    case 'tool-call-max-tokens-finish': {
                       controller.enqueue(chunk);
                       break;
                     }
@@ -1807,9 +1807,9 @@ However, the LLM results are expected to be small enough to not cause issues.
               break;
             }
 
-            case 'tool_call_max_tokens_finish': {
+            case 'tool-call-max-tokens-finish': {
               controller.enqueue(
-                formatDataStreamPart('tool_call_max_tokens_finish', {
+                formatDataStreamPart('tool-call-max-tokens-finish', {
                   toolCallId: chunk.toolCallId,
                   toolName: chunk.toolName,
                 }),

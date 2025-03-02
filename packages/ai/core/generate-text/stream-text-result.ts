@@ -398,7 +398,7 @@ export type TextStreamPart<TOOLS extends ToolSet> =
       error: unknown;
     }
   | {
-      type: 'tool_call_max_tokens_finish';
+      type: 'tool-call-max-tokens-finish';
       toolCallId: string;
       toolName: string;
     };

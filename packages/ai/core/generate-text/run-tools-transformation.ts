@@ -81,7 +81,7 @@ export type SingleRequestTextStreamPart<TOOLS extends ToolSet> =
       error: unknown;
     }
   | {
-      type: 'tool_call_max_tokens_finish';
+      type: 'tool-call-max-tokens-finish';
       toolCallId: string;
       toolName: string;
     };
@@ -323,7 +323,7 @@ export function runToolsTransformation<TOOLS extends ToolSet>({
           };
           if (chunk.finishReason === "length") {
             controller.enqueue({
-              type: "tool_call_max_tokens_finish" as any,
+              type: "tool-call-max-tokens-finish" as any,
               toolCallId,
               toolName,
             });
