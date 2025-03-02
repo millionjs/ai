@@ -45,6 +45,7 @@ export async function processChatResponse({
     type: 'tool_call_max_tokens_finish';
     toolCallId: string;
     toolName: string;
+    toolInvocation: ToolInvocation;
   }) => void;
 }) {
   const replaceLastMessage = false;
@@ -390,10 +391,30 @@ export async function processChatResponse({
       throw new Error(error);
     },
     onToolCallMaxTokensFinishPart(value) {
+      const partialToolCall = partialToolCalls[value.toolCallId];
+
+      const { value: partialArgs } = parsePartialJson(partialToolCall.text);
+
+      const invocation = {
+        state: 'max-tokens',
+        step: partialToolCall.step,
+        toolCallId: value.toolCallId,
+        toolName: value.toolName,
+        args: partialArgs,
+        result: null,
+      } as const;
+
+      message.toolInvocations![partialToolCall.index] = invocation;
+
+      updateToolInvocationPart(value.toolCallId, invocation);
+
+      execUpdate();
+
       onToolCallMaxTokensFinish?.({
         type: 'tool_call_max_tokens_finish',
         toolCallId: value.toolCallId,
         toolName: value.toolName,
+        toolInvocation: invocation,
       });
     },
   });
