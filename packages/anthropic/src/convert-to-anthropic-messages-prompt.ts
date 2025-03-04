@@ -114,6 +114,7 @@ export function convertToAnthropicMessagesPrompt({
                         type: 'base64',
                         media_type: part.mimeType ?? 'image/jpeg',
                         data: convertUint8ArrayToBase64(part.image),
+                        ...({ tag: 'another one' } as any),
                       },
                       cache_control: cacheControl,
                     });
@@ -179,16 +180,32 @@ export function convertToAnthropicMessagesPrompt({
                               text: part.text,
                               cache_control: undefined,
                             };
-                          case 'image':
+                          case 'image': {
+                            if (
+                              'source' in part &&
+                              (part.source as any).type === 'url'
+                            ) {
+                              return {
+                                type: 'image' as const,
+                                source: {
+                                  type: 'url' as const,
+                                  // @ts-expect-error
+                                  url: part.source.url,
+                                },
+                                cache_control: undefined,
+                              } as any;
+                            }
                             return {
                               type: 'image' as const,
                               source: {
                                 type: 'base64' as const,
                                 media_type: part.mimeType ?? 'image/jpeg',
                                 data: part.data,
+                                ...({ tag: part } as any),
                               },
                               cache_control: undefined,
                             };
+                          }
                         }
                       })
                     : JSON.stringify(part.result);

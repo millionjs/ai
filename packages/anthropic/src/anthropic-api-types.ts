@@ -54,6 +54,9 @@ export interface AnthropicImageContent {
     type: 'base64';
     media_type: string;
     data: string;
+  } | {
+    type: 'url';
+    url: string;
   };
   cache_control: AnthropicCacheControl | undefined;
 }
