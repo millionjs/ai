@@ -191,7 +191,7 @@ export function convertToAnthropicMessagesPrompt({
                                   url: part.source.url,
                                 },
                                 cache_control: undefined,
-                              } as any;
+                              }
                             }
                             return {
                               type: 'image' as const,
@@ -199,7 +199,6 @@ export function convertToAnthropicMessagesPrompt({
                                 type: 'base64' as const,
                                 media_type: part.mimeType ?? 'image/jpeg',
                                 data: part.data,
-                                ...({ tag: part } as any),
                               },
                               cache_control: undefined,
                             };
