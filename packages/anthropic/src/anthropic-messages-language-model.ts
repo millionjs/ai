@@ -714,6 +714,15 @@ const anthropicMessagesChunkSchema = z.discriminatedUnion('type', [
   z.object({
     type: z.literal('ping'),
   }),
+  z.object({
+    type: z.literal('vertex_event'),
+    usage: z.object({
+      input_tokens: z.number(),
+      output_tokens: z.number(),
+      cache_creation_input_tokens: z.number().nullish(),
+      cache_read_input_tokens: z.number().nullish(),
+    }),
+  }),
 ]);
 
 const anthropicProviderOptionsSchema = z.object({
