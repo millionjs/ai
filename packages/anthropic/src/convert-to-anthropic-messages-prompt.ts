@@ -190,14 +190,19 @@ export function convertToAnthropicMessagesPrompt({
                                   url: part.source.url,
                                 },
                                 cache_control: undefined,
-                              }
+                              };
                             }
                             return {
                               type: 'image' as const,
                               source: {
                                 type: 'base64' as const,
-                                media_type: part.mimeType ?? 'image/jpeg',
-                                data: part.data,
+                                media_type:
+                                  part.mimeType ??
+                                  (part as any)?.source?.mimeType ??
+                                  (part as any)?.source?.media_type ??
+                                  'image/jpeg',
+                                // @ts-expect-error
+                                data: part.source.data,
                               },
                               cache_control: undefined,
                             };
