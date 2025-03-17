@@ -391,26 +391,28 @@ export async function processChatResponse({
       throw new Error(error);
     },
     onToolCallMaxTokensFinishPart(value) {
-      const partialToolCall = partialToolCalls[value.toolCallId];
+      const partialToolCall = partialToolCalls[value?.toolCallId];
 
-      const { value: partialArgs } = parsePartialJson(partialToolCall.text);
+      const { value: partialArgs } = parsePartialJson(partialToolCall?.text);
 
-      let error = `One of the tool call arguments was too long. Try recalling the tool with a shorter parameter.`
+      let error = `One of the tool call arguments was too long. Try recalling the tool with a shorter parameter.`;
       if (value.toolName === 'edit_code') {
-        error = `One of the tool call arguments was too long, most likely code_edit. Try recalling the tool with a shorter edit. You can write half of code_edit in this tool call and the other half in the next one.`
+        error = `One of the tool call arguments was too long, most likely code_edit. Try recalling the tool with a shorter edit. You can write half of code_edit in this tool call and the other half in the next one.`;
       }
       const invocation = {
         state: 'result',
-        step: partialToolCall.step,
+        step: partialToolCall?.step,
         toolCallId: value.toolCallId,
         toolName: value.toolName,
-        args: partialArgs,
+        args: partialArgs || {},
         result: {
           max_tokens_error: error,
         },
       } as const;
 
-      message.toolInvocations![partialToolCall.index] = invocation;
+      if (partialToolCall?.index !== undefined) {
+        message.toolInvocations![partialToolCall.index] = invocation;
+      }
 
       updateToolInvocationPart(value.toolCallId, invocation);
 
