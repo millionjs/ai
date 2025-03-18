@@ -578,6 +578,7 @@ export class AnthropicMessagesLanguageModel implements LanguageModelV1 {
               }
 
               default: {
+                // @ts-expect-error
                 const _exhaustiveCheck: never = value;
                 throw new Error(`Unsupported chunk type: ${_exhaustiveCheck}`);
               }

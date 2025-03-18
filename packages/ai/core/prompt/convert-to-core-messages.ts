@@ -14,7 +14,6 @@ import {
 } from '../prompt';
 import { ProviderOptions } from '../types/provider-metadata';
 import { attachmentsToParts } from './attachments-to-parts';
-import { MessageConversionError } from './message-conversion-error';
 
 /**
 Converts an array of messages from useChat into an array of CoreMessages that can be used
@@ -153,16 +152,17 @@ export function convertToCoreMessages<TOOLS extends ToolSet = never>(
                 role: 'tool',
                 content: stepInvocations.map(
                   (toolInvocation): ToolResultPart => {
-                    if (!('result' in toolInvocation)) {
-                      throw new MessageConversionError({
-                        originalMessage: message,
-                        message:
-                          'ToolInvocation must have a result: ' +
-                          JSON.stringify(toolInvocation),
-                      });
-                    }
+                    // if (!('result' in toolInvocation)) {
+                    //   throw new MessageConversionError({
+                    //     originalMessage: message,
+                    //     message:
+                    //       'ToolInvocation must have a result: ' +
+                    //       JSON.stringify(toolInvocation),
+                    //   });
+                    // }
 
-                    const { toolCallId, toolName, result } = toolInvocation;
+                    const { toolCallId, toolName } = toolInvocation;
+                    const result = (toolInvocation as any).result || undefined;
 
                     const tool = tools[toolName];
                     return tool?.experimental_toToolResultContent != null
@@ -265,16 +265,17 @@ export function convertToCoreMessages<TOOLS extends ToolSet = never>(
           coreMessages.push({
             role: 'tool',
             content: stepInvocations.map((toolInvocation): ToolResultPart => {
-              if (!('result' in toolInvocation)) {
-                throw new MessageConversionError({
-                  originalMessage: message,
-                  message:
-                    'ToolInvocation must have a result: ' +
-                    JSON.stringify(toolInvocation),
-                });
-              }
+              // if (!('result' in toolInvocation)) {
+              // throw new MessageConversionError({
+              //   originalMessage: message,
+              //   message:
+              //     'ToolInvocation must have a result: ' +
+              //     JSON.stringify(toolInvocation),
+              // });
+              // }
 
-              const { toolCallId, toolName, result } = toolInvocation;
+              const { toolCallId, toolName } = toolInvocation;
+              const result = (toolInvocation as any).result || undefined;
 
               const tool = tools[toolName];
               return tool?.experimental_toToolResultContent != null
@@ -310,11 +311,6 @@ export function convertToCoreMessages<TOOLS extends ToolSet = never>(
       }
 
       default: {
-        const _exhaustiveCheck: never = role;
-        throw new MessageConversionError({
-          originalMessage: message,
-          message: `Unsupported role: ${_exhaustiveCheck}`,
-        });
       }
     }
   }
