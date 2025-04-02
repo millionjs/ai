@@ -11,7 +11,7 @@ import {
   detectMimeType,
   imageMimeTypeSignatures,
 } from '../util/detect-mimetype';
-import { FilePart, ImagePart, TextPart } from './content-part';
+import { FilePart, ImagePart, TextPart, ToolResultPart } from './content-part';
 import {
   convertDataContentToBase64String,
   convertDataContentToUint8Array,
@@ -170,16 +170,20 @@ export function convertToLanguageModelMessage(
     case 'tool': {
       return {
         role: 'tool',
-        content: message.content.map(part => ({
-          type: 'tool-result',
-          toolCallId: part.toolCallId,
-          toolName: part.toolName,
-          result: part.result,
-          content: part.experimental_content,
-          isError: part.isError,
-          providerMetadata:
-            part.providerOptions ?? part.experimental_providerMetadata,
-        })),
+        content: message.content
+          .map(part =>
+            convertToolCallPartToLanguageModelPart(part, downloadedAssets),
+          )
+          .map(part => ({
+            type: 'tool-result',
+            toolCallId: part.toolCallId,
+            toolName: part.toolName,
+            result: part.result,
+            content: part.experimental_content,
+            isError: part.isError,
+            providerMetadata:
+              part.providerOptions ?? part.experimental_providerMetadata,
+          })),
         providerMetadata:
           message.providerOptions ?? message.experimental_providerMetadata,
       };
@@ -234,9 +238,38 @@ async function downloadAssets(
      */
     .filter(url => !modelSupportsUrl(url));
 
+  // Fixed toolUrls extraction to handle the nested structure
+  const toolUrls = messages
+    .filter(message => message.role === 'tool')
+    .map(message => message.content)
+    .filter(content => Array.isArray(content))
+    .flat()
+    .filter(item => item.type === 'tool-result')
+    .flatMap(item => {
+      // Handle both array and non-array results
+      const results = Array.isArray(item.result) ? item.result : [item.result];
+      return results
+        .filter(result => result.type === 'image')
+        .map(result => {
+          // Handle both direct image property and source.url structure
+          if (result.image) {
+            return result.image;
+          } else if (result.source && result.source.type === 'url') {
+            return result.source.url;
+          }
+          return null;
+        })
+        .filter(url => url !== null);
+    })
+    .map(url => (typeof url === 'string' ? new URL(url) : url))
+    .filter(image => image instanceof URL)
+    .filter(url => !modelSupportsUrl(url));
+
+  const allUrls = [...urls, ...toolUrls];
+
   // download in parallel:
   const downloadedImages = await Promise.all(
-    urls.map(async url => ({
+    allUrls.map(async url => ({
       url,
       data: await downloadImplementation({ url }),
     })),
@@ -378,4 +411,167 @@ function convertPartToLanguageModelPart(
       };
     }
   }
+}
+
+function convertToolCallPartToLanguageModelPart(
+  part: ToolResultPart,
+  downloadedAssets: Record<
+    string,
+    { mimeType: string | undefined; data: Uint8Array }
+  >,
+) {
+  if (
+    part.type !== 'tool-result' ||
+    (part.toolName !== 'web_search' && part.toolName !== 'web_scrape')
+  ) {
+    return part;
+  }
+
+  // Create a copy of the part to avoid modifying the original
+  const transformedPart = { ...part };
+
+  // Process both result and experimental_content if they exist
+  const processContentArray = (contentArray: any) => {
+    if (!contentArray) return undefined;
+
+    const array = Array.isArray(contentArray) ? contentArray : [contentArray];
+
+    return array.map(item => {
+      // Handle text items
+      if (item.type === 'text') {
+        return {
+          type: 'text',
+          text: item.text,
+          providerMetadata:
+            item.providerOptions ?? item.experimental_providerMetadata,
+        };
+      }
+
+      // Handle image items
+      if (item.type === 'image') {
+        let mimeType = item.mimeType;
+        let data = item.image || (item.source && item.source.url);
+        let content;
+        let normalizedData;
+
+        try {
+          content = typeof data === 'string' ? new URL(data) : data;
+        } catch (error) {
+          content = data;
+        }
+
+        if (content instanceof URL) {
+          if (content.protocol === 'data:') {
+            const { mimeType: dataUrlMimeType, base64Content } = splitDataUrl(
+              content.toString(),
+            );
+            if (dataUrlMimeType == null || base64Content == null) {
+              throw new Error(`Invalid data URL format in part ${item.type}`);
+            }
+            mimeType = dataUrlMimeType;
+            normalizedData = convertDataContentToUint8Array(base64Content);
+          } else {
+            const downloadedFile = downloadedAssets[content.toString()];
+            if (downloadedFile) {
+              normalizedData = downloadedFile.data;
+              mimeType = mimeType ?? downloadedFile.mimeType;
+            } else {
+              normalizedData = content;
+            }
+          }
+        } else {
+          normalizedData = convertDataContentToUint8Array(content);
+        }
+
+        if (normalizedData instanceof Uint8Array) {
+          mimeType = detectImageMimeType(normalizedData) ?? mimeType;
+        }
+
+        // Convert image data to base64 if it's a Uint8Array
+        const imageData =
+          normalizedData instanceof Uint8Array
+            ? convertDataContentToBase64String(normalizedData)
+            : normalizedData;
+
+        return {
+          type: 'image',
+          source: {
+            type: 'base64',
+            media_type: mimeType,
+            data: imageData,
+          },
+          providerMetadata:
+            item.providerOptions ?? item.experimental_providerMetadata,
+        };
+      }
+
+      // Handle file items
+      if (item.type === 'file') {
+        let mimeType = item.mimeType;
+        let data = item.data;
+        let content;
+        let normalizedData;
+
+        try {
+          content = typeof data === 'string' ? new URL(data) : data;
+        } catch (error) {
+          content = data;
+        }
+
+        if (content instanceof URL) {
+          if (content.protocol === 'data:') {
+            const { mimeType: dataUrlMimeType, base64Content } = splitDataUrl(
+              content.toString(),
+            );
+            if (dataUrlMimeType == null || base64Content == null) {
+              throw new Error(`Invalid data URL format in part ${item.type}`);
+            }
+            mimeType = dataUrlMimeType;
+            normalizedData = convertDataContentToUint8Array(base64Content);
+          } else {
+            const downloadedFile = downloadedAssets[content.toString()];
+            if (downloadedFile) {
+              normalizedData = downloadedFile.data;
+              mimeType = mimeType ?? downloadedFile.mimeType;
+            } else {
+              normalizedData = content;
+            }
+          }
+        } else {
+          normalizedData = convertDataContentToUint8Array(content);
+        }
+
+        if (mimeType == null) {
+          throw new Error(`Mime type is missing for file part`);
+        }
+
+        return {
+          type: 'file',
+          data:
+            normalizedData instanceof Uint8Array
+              ? convertDataContentToBase64String(normalizedData)
+              : normalizedData,
+          mimeType,
+          providerMetadata:
+            item.providerOptions ?? item.experimental_providerMetadata,
+        };
+      }
+
+      // Return unsupported types as is
+      return item;
+    });
+  };
+
+  // Process both result and experimental_content
+  if (part.result) {
+    transformedPart.result = processContentArray(part.result);
+  }
+
+  if (part.experimental_content) {
+    transformedPart.experimental_content = processContentArray(
+      part.experimental_content,
+    );
+  }
+
+  return transformedPart;
 }
