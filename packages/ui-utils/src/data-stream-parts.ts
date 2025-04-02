@@ -1,5 +1,6 @@
 import {
   LanguageModelV1FinishReason,
+  LanguageModelV1ProviderMetadata,
   LanguageModelV1Source,
 } from '@ai-sdk/provider';
 import { ToolCall, ToolResult } from '@ai-sdk/provider-utils';
@@ -228,6 +229,7 @@ const finishMessageStreamPart: DataStreamPart<
       promptTokens: number;
       completionTokens: number;
     };
+    providerMetadata?: LanguageModelV1ProviderMetadata;
   }
 > = {
   code: 'd',
@@ -250,6 +252,7 @@ const finishMessageStreamPart: DataStreamPart<
         promptTokens: number;
         completionTokens: number;
       };
+      providerMetadata?: LanguageModelV1ProviderMetadata;
     } = {
       finishReason: value.finishReason as LanguageModelV1FinishReason,
     };
@@ -273,6 +276,15 @@ const finishMessageStreamPart: DataStreamPart<
       };
     }
 
+    if (
+      'providerMetadata' in value &&
+      value.providerMetadata != null &&
+      typeof value.providerMetadata === 'object'
+    ) {
+      result.providerMetadata =
+        value.providerMetadata as LanguageModelV1ProviderMetadata;
+    }
+
     return {
       type: 'finish_message',
       value: result,
@@ -290,6 +302,7 @@ const finishStepStreamPart: DataStreamPart<
       promptTokens: number;
       completionTokens: number;
     };
+    providerMetadata?: LanguageModelV1ProviderMetadata;
   }
 > = {
   code: 'e',
@@ -313,6 +326,7 @@ const finishStepStreamPart: DataStreamPart<
         promptTokens: number;
         completionTokens: number;
       };
+      providerMetadata?: LanguageModelV1ProviderMetadata;
     } = {
       finishReason: value.finishReason as LanguageModelV1FinishReason,
       isContinued: false,
@@ -339,6 +353,15 @@ const finishStepStreamPart: DataStreamPart<
 
     if ('isContinued' in value && typeof value.isContinued === 'boolean') {
       result.isContinued = value.isContinued;
+    }
+
+    if (
+      'providerMetadata' in value &&
+      value.providerMetadata != null &&
+      typeof value.providerMetadata === 'object'
+    ) {
+      result.providerMetadata =
+        value.providerMetadata as LanguageModelV1ProviderMetadata;
     }
 
     return {
