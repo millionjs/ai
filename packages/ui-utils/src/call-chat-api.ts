@@ -1,6 +1,12 @@
 import { processChatResponse } from './process-chat-response';
 import { processChatTextResponse } from './process-chat-text-response';
-import { IdGenerator, JSONValue, ToolInvocation, UIMessage, UseChatOptions } from './types';
+import {
+  IdGenerator,
+  JSONValue,
+  ToolInvocation,
+  UIMessage,
+  UseChatOptions,
+} from './types';
 
 // use function to allow for mocking in tests:
 const getOriginalFetch = () => fetch;
@@ -112,9 +118,9 @@ export async function callChatApi({
         update: onUpdate,
         lastMessage,
         onToolCall,
-        onFinish({ message, finishReason, usage }) {
+        onFinish({ message, finishReason, usage, providerMetadata }) {
           if (onFinish && message != null) {
-            onFinish(message, { usage, finishReason });
+            onFinish(message, { usage, finishReason, providerMetadata });
           }
         },
         onToolCallMaxTokensFinish,

@@ -1,5 +1,6 @@
 import {
   LanguageModelV1FinishReason,
+  LanguageModelV1ProviderMetadata,
   LanguageModelV1Source,
 } from '@ai-sdk/provider';
 import { FetchFunction, ToolCall, ToolResult } from '@ai-sdk/provider-utils';
@@ -332,6 +333,7 @@ either synchronously or asynchronously.
     options: {
       usage: LanguageModelUsage;
       finishReason: LanguageModelV1FinishReason;
+      providerMetadata?: LanguageModelV1ProviderMetadata;
     },
   ) => void;
 
