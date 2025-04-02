@@ -1,4 +1,7 @@
-import { LanguageModelV1FinishReason } from '@ai-sdk/provider';
+import {
+  LanguageModelV1FinishReason,
+  LanguageModelV1ProviderMetadata,
+} from '@ai-sdk/provider';
 import { generateId as generateIdFunction } from '@ai-sdk/provider-utils';
 import {
   calculateLanguageModelUsage,
@@ -37,6 +40,7 @@ export async function processChatResponse({
     message: UIMessage | undefined;
     finishReason: LanguageModelV1FinishReason;
     usage: LanguageModelUsage;
+    providerMetadata: LanguageModelV1ProviderMetadata | undefined;
   }) => void;
   generateId?: () => string;
   getCurrentDate?: () => Date;
@@ -112,6 +116,9 @@ export async function processChatResponse({
     promptTokens: NaN,
     totalTokens: NaN,
   };
+
+  let providerMetadata: LanguageModelV1ProviderMetadata | undefined = undefined;
+
   let finishReason: LanguageModelV1FinishReason = 'unknown';
 
   function execUpdate() {
@@ -386,6 +393,9 @@ export async function processChatResponse({
       if (value.usage != null) {
         usage = calculateLanguageModelUsage(value.usage);
       }
+      if (value.providerMetadata != null) {
+        providerMetadata = value.providerMetadata;
+      }
     },
     onErrorPart(error) {
       throw new Error(error);
@@ -427,5 +437,5 @@ export async function processChatResponse({
     },
   });
 
-  onFinish?.({ message, finishReason, usage });
+  onFinish?.({ message, finishReason, usage, providerMetadata });
 }

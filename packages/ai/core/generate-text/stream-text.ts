@@ -1770,6 +1770,7 @@ However, the LLM results are expected to be small enough to not cause issues.
                         completionTokens: chunk.usage.completionTokens,
                       }
                     : undefined,
+                  providerMetadata: chunk.providerMetadata,
                   isContinued: chunk.isContinued,
                 }),
               );
@@ -1787,6 +1788,7 @@ However, the LLM results are expected to be small enough to not cause issues.
                           completionTokens: chunk.usage.completionTokens,
                         }
                       : undefined,
+                    providerMetadata: chunk.providerMetadata,
                   }),
                 );
               }
