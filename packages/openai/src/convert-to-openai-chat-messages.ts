@@ -189,7 +189,21 @@ export function convertToOpenAIChatMessages({
             messages.push({
               role: 'tool',
               tool_call_id: toolResponse.toolCallId,
-              content: JSON.stringify(toolResponse.result),
+              content: Array.isArray(toolResponse.result)
+                ? (toolResponse.result.map(part => {
+                    switch (part.type) {
+                      case 'text': {
+                        return { type: 'text', text: part.text };
+                      }
+                      case 'image': {
+                        return {
+                          type: 'image_url',
+                          image_url: { url: part.source?.data },
+                        };
+                      }
+                    }
+                  }) as any)
+                : JSON.stringify(toolResponse.result),
             });
           }
         }
