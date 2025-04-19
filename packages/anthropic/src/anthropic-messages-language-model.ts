@@ -577,10 +577,16 @@ export class AnthropicMessagesLanguageModel implements LanguageModelV1 {
                 return;
               }
 
+              // patch for Anthropic Vertex events
+              case 'vertex_event': {
+                return;
+              }
+
               default: {
-                // @ts-expect-error
                 const _exhaustiveCheck: never = value;
-                throw new Error(`Unsupported chunk type: ${_exhaustiveCheck}`);
+                throw new Error(
+                  `Unsupported chunk type: ${JSON.stringify(_exhaustiveCheck)}`,
+                );
               }
             }
           },
