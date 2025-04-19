@@ -244,7 +244,13 @@ async function downloadAssets(
     .map(message => message.content)
     .filter(content => Array.isArray(content))
     .flat()
-    .filter(item => item.type === 'tool-result')
+    /**
+     * Filter out image parts if the model supports image URLs, before letting it
+     * decide if it supports a particular URL.
+     */
+    .filter(
+      item => item.type === 'tool-result' && modelSupportsImageUrls !== true,
+    )
     .flatMap(item => {
       // Handle both array and non-array results
       const results = Array.isArray(item.result) ? item.result : [item.result];
