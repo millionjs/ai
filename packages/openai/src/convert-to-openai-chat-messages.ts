@@ -10,10 +10,12 @@ export function convertToOpenAIChatMessages({
   prompt,
   useLegacyFunctionCalling = false,
   systemMessageMode = 'system',
+  provider,
 }: {
   prompt: LanguageModelV1Prompt;
   useLegacyFunctionCalling?: boolean;
   systemMessageMode?: 'system' | 'developer' | 'remove';
+  provider: string;
 }): {
   messages: OpenAIChatPrompt;
   warnings: Array<LanguageModelV1CallWarning>;
@@ -186,11 +188,51 @@ export function convertToOpenAIChatMessages({
               content: JSON.stringify(toolResponse.result),
             });
           } else {
-            messages.push({
-              role: 'tool',
-              tool_call_id: toolResponse.toolCallId,
-              content: Array.isArray(toolResponse.result)
-                ? (toolResponse.result.map(part => {
+            // OpenAI provider
+            if (provider.startsWith('openai')) {
+              messages.push({
+                role: 'tool',
+                tool_call_id: toolResponse.toolCallId,
+                content: Array.isArray(toolResponse.result)
+                  ? (toolResponse.result.map(part => {
+                      switch (part.type) {
+                        case 'text': {
+                          return { type: 'text', text: part.text };
+                        }
+                        case 'image': {
+                          return {
+                            type: 'image_url',
+                            image_url: { url: part.source?.data },
+                          };
+                        }
+                        default: {
+                          return { type: 'text', text: JSON.stringify(part) };
+                        }
+                      }
+                    }) as any)
+                  : JSON.stringify(toolResponse.result),
+              });
+            } else {
+              // for Azure OpenAI
+              if (Array.isArray(toolResponse.result)) {
+                // First handle the return of the tool, to avoid triggering an error where the tool has no result. Then return the actual image through the user message.
+                messages.push({
+                  role: 'tool',
+                  tool_call_id: toolResponse.toolCallId,
+                  content: toolResponse.result.map(part => {
+                    switch (part.type) {
+                      case 'text': {
+                        return { type: 'text', text: part.text };
+                      }
+                      default: {
+                        return { type: 'text', text: JSON.stringify(part) };
+                      }
+                    }
+                  }) as any,
+                });
+                messages.push({
+                  role: 'user',
+                  content: toolResponse.result.map(part => {
                     switch (part.type) {
                       case 'text': {
                         return { type: 'text', text: part.text };
@@ -205,9 +247,16 @@ export function convertToOpenAIChatMessages({
                         return { type: 'text', text: JSON.stringify(part) };
                       }
                     }
-                  }) as any)
-                : JSON.stringify(toolResponse.result),
-            });
+                  }),
+                });
+              } else {
+                messages.push({
+                  role: 'tool',
+                  tool_call_id: toolResponse.toolCallId,
+                  content: JSON.stringify(toolResponse.result),
+                });
+              }
+            }
           }
         }
         break;
