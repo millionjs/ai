@@ -201,6 +201,9 @@ export function convertToOpenAIChatMessages({
                           image_url: { url: part.source?.data },
                         };
                       }
+                      default: {
+                        return { type: 'text', text: JSON.stringify(part) };
+                      }
                     }
                   }) as any)
                 : JSON.stringify(toolResponse.result),
