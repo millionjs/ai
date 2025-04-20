@@ -20,6 +20,7 @@ import {
 } from '@ai-sdk/provider-utils';
 import { z } from 'zod';
 import { convertToOpenAIChatMessages } from './convert-to-openai-chat-messages';
+import { getResponseMetadata } from './get-response-metadata';
 import { mapOpenAIChatLogProbsOutput } from './map-openai-chat-logprobs';
 import { mapOpenAIFinishReason } from './map-openai-finish-reason';
 import { OpenAIChatModelId, OpenAIChatSettings } from './openai-chat-settings';
@@ -27,7 +28,6 @@ import {
   openaiErrorDataSchema,
   openaiFailedResponseHandler,
 } from './openai-error';
-import { getResponseMetadata } from './get-response-metadata';
 import { prepareTools } from './openai-prepare-tools';
 
 type OpenAIChatConfig = {
@@ -138,6 +138,7 @@ export class OpenAIChatLanguageModel implements LanguageModelV1 {
         prompt,
         useLegacyFunctionCalling,
         systemMessageMode: getSystemMessageMode(this.modelId),
+        provider: this.config.provider,
       },
     );
 
