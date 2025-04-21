@@ -490,7 +490,11 @@ function convertToolCallPartToLanguageModelPart(
         }
 
         if (normalizedData instanceof Uint8Array) {
-          mimeType = detectImageMimeType(normalizedData) ?? mimeType;
+          mimeType =
+            detectMimeType({
+              data: normalizedData,
+              signatures: imageMimeTypeSignatures,
+            }) ?? mimeType;
         }
 
         // Convert image data to base64 if it's a Uint8Array
