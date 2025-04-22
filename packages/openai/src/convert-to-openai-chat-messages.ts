@@ -230,25 +230,6 @@ export function convertToOpenAIChatMessages({
                     }
                   }) as any,
                 });
-                messages.push({
-                  role: 'user',
-                  content: toolResponse.result.map(part => {
-                    switch (part.type) {
-                      case 'text': {
-                        return { type: 'text', text: part.text };
-                      }
-                      case 'image': {
-                        return {
-                          type: 'image_url',
-                          image_url: { url: part.source?.data },
-                        };
-                      }
-                      default: {
-                        return { type: 'text', text: JSON.stringify(part) };
-                      }
-                    }
-                  }),
-                });
               } else {
                 messages.push({
                   role: 'tool',
@@ -256,6 +237,32 @@ export function convertToOpenAIChatMessages({
                   content: JSON.stringify(toolResponse.result),
                 });
               }
+            }
+          }
+        }
+        // return the tool result as a user message (for Azure OpenAI)
+        for (const toolResponse of content) {
+          if (!useLegacyFunctionCalling && !provider.startsWith('openai')) {
+            if (Array.isArray(toolResponse.result)) {
+              messages.push({
+                role: 'user',
+                content: toolResponse.result.map(part => {
+                  switch (part.type) {
+                    case 'text': {
+                      return { type: 'text', text: part.text };
+                    }
+                    case 'image': {
+                      return {
+                        type: 'image_url',
+                        image_url: { url: part.source?.data },
+                      };
+                    }
+                    default: {
+                      return { type: 'text', text: JSON.stringify(part) };
+                    }
+                  }
+                }),
+              });
             }
           }
         }
