@@ -1,3 +1,7 @@
+import { GoogleGenerativeAISystemInstruction } from './google-generative-ai-prompt';
+
+import { GoogleGenerativeAIContent } from './google-generative-ai-prompt';
+
 export type GoogleGenerativeAIModelId =
   // Stable models
   // https://ai.google.dev/gemini-api/docs/models/gemini
@@ -40,7 +44,26 @@ export interface DynamicRetrievalConfig {
   dynamicThreshold?: number;
 }
 
+export interface CachedSession {
+  cachedContent: {
+    name: string;
+    model: string;
+    createTime: string;
+    updateTime: string;
+    expireTime: string;
+    displayName: string;
+    usageMetadata: { totalTokenCount: number; textCount: number };
+  };
+  contents?: GoogleGenerativeAIContent[];
+  systemInstruction?: GoogleGenerativeAISystemInstruction;
+  tools?: any;
+  toolConfig?: any;
+}
+
 export interface GoogleGenerativeAISettings {
+  retrieveCachedSession?: () => Promise<CachedSession | null | undefined>;
+  saveCachedSession?: (session: CachedSession) => Promise<void>;
+
   /**
 Optional.
 The name of the cached content used as context to serve the prediction.

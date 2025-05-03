@@ -22,9 +22,15 @@ import { convertJSONSchemaToOpenAPISchema } from './convert-json-schema-to-opena
 import { convertToGoogleGenerativeAIMessages } from './convert-to-google-generative-ai-messages';
 import { getModelPath } from './get-model-path';
 import { googleFailedResponseHandler } from './google-error';
-import { GoogleGenerativeAIContentPart } from './google-generative-ai-prompt';
 import {
+  GoogleGenerativeAIContent,
+  GoogleGenerativeAIContentPart,
+  GoogleGenerativeAISystemInstruction,
+} from './google-generative-ai-prompt';
+import {
+  CachedSession,
   GoogleGenerativeAIModelId,
+  GoogleGenerativeAISettings,
   InternalGoogleGenerativeAISettings,
 } from './google-generative-ai-settings';
 import { prepareTools } from './google-prepare-tools';
@@ -37,6 +43,9 @@ type GoogleGenerativeAIConfig = {
   fetch?: FetchFunction;
   generateId: () => string;
   isSupportedUrl: (url: URL) => boolean;
+
+  projectId?: string;
+  location?: string;
 };
 
 export class GoogleGenerativeAILanguageModel implements LanguageModelV1 {
@@ -134,21 +143,46 @@ export class GoogleGenerativeAILanguageModel implements LanguageModelV1 {
           this.modelId,
         );
 
+        const cachedContent = await this.cacheContents({
+          retrieveCachedSession: this.settings.retrieveCachedSession,
+          saveCachedSession: this.settings.saveCachedSession,
+          contents,
+          systemInstruction,
+          tools,
+          toolConfig,
+          headers: await resolve(this.config.headers),
+        });
+
         return {
           args: {
             generationConfig,
-            contents,
-            systemInstruction,
+            contents: cachedContent ? cachedContent.contents : contents,
+            systemInstruction: cachedContent
+              ? cachedContent.systemInstruction
+              : systemInstruction,
             safetySettings: this.settings.safetySettings,
-            tools,
-            toolConfig,
-            cachedContent: this.settings.cachedContent,
+            tools: cachedContent ? cachedContent.tools : tools,
+            toolConfig: cachedContent ? cachedContent.toolConfig : toolConfig,
+            cachedContent: cachedContent
+              ? cachedContent.name
+              : this.settings.cachedContent,
           },
           warnings: [...warnings, ...toolWarnings],
+          cachedContent,
         };
       }
 
       case 'object-json': {
+        const cachedContent = await this.cacheContents({
+          retrieveCachedSession: this.settings.retrieveCachedSession,
+          saveCachedSession: this.settings.saveCachedSession,
+          contents,
+          systemInstruction,
+          tools: undefined,
+          toolConfig: undefined,
+          headers: await resolve(this.config.headers),
+        });
+
         return {
           args: {
             generationConfig: {
@@ -162,36 +196,60 @@ export class GoogleGenerativeAILanguageModel implements LanguageModelV1 {
                   ? convertJSONSchemaToOpenAPISchema(mode.schema)
                   : undefined,
             },
-            contents,
-            systemInstruction,
+            contents: cachedContent ? cachedContent.contents : contents,
+            systemInstruction: cachedContent
+              ? cachedContent.systemInstruction
+              : systemInstruction,
             safetySettings: this.settings.safetySettings,
-            cachedContent: this.settings.cachedContent,
+            cachedContent: cachedContent
+              ? cachedContent.name
+              : this.settings.cachedContent,
           },
           warnings,
+          cachedContent,
         };
       }
 
       case 'object-tool': {
+        const tools = {
+          functionDeclarations: [
+            {
+              name: mode.tool.name,
+              description: mode.tool.description ?? '',
+              parameters: convertJSONSchemaToOpenAPISchema(
+                mode.tool.parameters,
+              ),
+            },
+          ],
+        };
+
+        const toolConfig = {
+          functionCallingConfig: { mode: 'ANY' },
+        };
+
+        const cachedContent = await this.cacheContents({
+          retrieveCachedSession: this.settings.retrieveCachedSession,
+          saveCachedSession: this.settings.saveCachedSession,
+          contents,
+          systemInstruction,
+          tools,
+          toolConfig,
+          headers: await resolve(this.config.headers),
+        });
+
         return {
           args: {
             generationConfig,
-            contents,
-            tools: {
-              functionDeclarations: [
-                {
-                  name: mode.tool.name,
-                  description: mode.tool.description ?? '',
-                  parameters: convertJSONSchemaToOpenAPISchema(
-                    mode.tool.parameters,
-                  ),
-                },
-              ],
-            },
-            toolConfig: { functionCallingConfig: { mode: 'ANY' } },
+            contents: cachedContent ? cachedContent.contents : contents,
+            tools: cachedContent ? cachedContent.tools : tools,
+            toolConfig: cachedContent ? cachedContent.toolConfig : toolConfig,
             safetySettings: this.settings.safetySettings,
-            cachedContent: this.settings.cachedContent,
+            cachedContent: cachedContent
+              ? cachedContent.name
+              : this.settings.cachedContent,
           },
           warnings,
+          cachedContent,
         };
       }
 
@@ -206,10 +264,150 @@ export class GoogleGenerativeAILanguageModel implements LanguageModelV1 {
     return this.config.isSupportedUrl(url);
   }
 
+  async cacheContents({
+    retrieveCachedSession,
+    saveCachedSession,
+    contents,
+    systemInstruction,
+    tools,
+    toolConfig,
+    headers,
+  }: {
+    retrieveCachedSession?: GoogleGenerativeAISettings['retrieveCachedSession'];
+    saveCachedSession?: GoogleGenerativeAISettings['saveCachedSession'];
+    contents: GoogleGenerativeAIContent[];
+    systemInstruction: GoogleGenerativeAISystemInstruction | undefined;
+    tools: any;
+    toolConfig: any;
+    headers: Record<string, string | undefined>;
+  }): Promise<
+    | (CachedSession['cachedContent'] & {
+        contents?: GoogleGenerativeAIContent[];
+        systemInstruction?: GoogleGenerativeAISystemInstruction;
+        tools?: any;
+        toolConfig?: any;
+      })
+    | undefined
+  > {
+    if (!retrieveCachedSession || !saveCachedSession) {
+      return;
+    }
+
+    const lastUserContent = contents.at(-1);
+    if (lastUserContent?.role === 'user') {
+      let result: CachedSession['cachedContent'] & {
+        contents?: GoogleGenerativeAIContent[];
+        systemInstruction?: GoogleGenerativeAISystemInstruction;
+        tools?: any;
+        toolConfig?: any;
+      };
+      let cachedSession = await retrieveCachedSession();
+
+      const generateCache = async () => {
+        const url = `https://${this.config.location}-aiplatform.googleapis.com/v1/projects/${this.config.projectId}/locations/${this.config.location}/cachedContents`;
+        const model = `projects/${this.config.projectId}/locations/${this.config.location}/publishers/google/models/${this.modelId}`;
+
+        // Delete the last content with the role of user
+        const cachedContents = contents.slice(0, -1);
+        const response = await fetch(url, {
+          method: 'POST',
+          body: JSON.stringify({
+            model,
+            contents: cachedContents,
+            systemInstruction,
+            tools,
+            toolConfig,
+            ttl: '360s', // 6 minutes, It should be longer than the ttl set in kv.
+          }),
+          headers: {
+            'Content-Type': 'application/json; charset=utf-8',
+            ...headers,
+          },
+        }).then(res => res.json());
+
+        if ('error' in response) {
+          console.error(response.error);
+          return;
+        }
+
+        cachedSession = {
+          cachedContent: response,
+          contents: cachedContents,
+          systemInstruction,
+          tools,
+          toolConfig,
+        };
+        await saveCachedSession(cachedSession);
+      };
+
+      // If there is no cached session, create a new one
+      if (!cachedSession) {
+        await generateCache();
+      }
+
+      if (cachedSession?.contents) {
+        // Check if contents matches cachedSession.contents up to cachedSession.contents.length
+        let needsRegenerate = false;
+
+        if (cachedSession.cachedContent.expireTime) {
+          const expireTime = new Date(cachedSession.cachedContent.expireTime);
+          const now = new Date();
+          if (expireTime < now) {
+            needsRegenerate = true;
+          }
+        }
+
+        // Check if contents is shorter than cachedSession.contents
+        if (contents.length < cachedSession.contents.length) {
+          needsRegenerate = true;
+        } else {
+          // Compare each element in the arrays at the same index position
+          for (let i = 0; i < cachedSession.contents.length; i++) {
+            if (
+              JSON.stringify(contents[i]) !==
+              JSON.stringify(cachedSession.contents[i])
+            ) {
+              needsRegenerate = true;
+              break;
+            }
+          }
+        }
+
+        // If regeneration is needed, create a new cached session
+        if (needsRegenerate) {
+          await generateCache();
+        }
+      }
+
+      if (!cachedSession) {
+        throw new Error('No cached session found');
+      }
+
+      result = cachedSession.cachedContent;
+
+      // We only need to include content that comes after the cached content
+      if (cachedSession.contents && cachedSession.contents.length > 0) {
+        // Keep only the content that appears after the cached content
+        result.contents = contents.slice(cachedSession.contents.length);
+      } else {
+        // If no cached content, keep everything
+        result.contents = contents;
+      }
+      // // If the systemInstruction exists in cachedSession, then delete it.
+      result.systemInstruction = undefined;
+      // If the tools exist in cachedSession, then delete it.
+      result.tools = undefined;
+      // If the toolConfig exists in cachedSession, then delete it.
+      result.toolConfig = undefined;
+
+      return result;
+    }
+  }
+
   async doGenerate(
     options: Parameters<LanguageModelV1['doGenerate']>[0],
   ): Promise<Awaited<ReturnType<LanguageModelV1['doGenerate']>>> {
-    const { args, warnings } = await this.getArgs(options);
+    const { args, warnings, cachedContent } = await this.getArgs(options);
     const body = JSON.stringify(args);
 
     const mergedHeaders = combineHeaders(
@@ -272,6 +470,8 @@ export class GoogleGenerativeAILanguageModel implements LanguageModelV1 {
         google: {
           groundingMetadata: candidate.groundingMetadata ?? null,
           safetyRatings: candidate.safetyRatings ?? null,
+          cachedPromptTokens:
+            cachedContent?.usageMetadata?.totalTokenCount ?? null,
         },
       },
       sources: extractSources({
@@ -285,7 +485,7 @@ export class GoogleGenerativeAILanguageModel implements LanguageModelV1 {
   async doStream(
     options: Parameters<LanguageModelV1['doStream']>[0],
   ): Promise<Awaited<ReturnType<LanguageModelV1['doStream']>>> {
-    const { args, warnings } = await this.getArgs(options);
+    const { args, warnings, cachedContent } = await this.getArgs(options);
 
     const body = JSON.stringify(args);
     const headers = combineHeaders(
@@ -419,6 +619,8 @@ export class GoogleGenerativeAILanguageModel implements LanguageModelV1 {
                 google: {
                   groundingMetadata: candidate.groundingMetadata ?? null,
                   safetyRatings: candidate.safetyRatings ?? null,
+                  cachedPromptTokens:
+                    cachedContent?.usageMetadata?.totalTokenCount ?? null,
                 },
               };
             }
