@@ -431,6 +431,7 @@ function convertToolCallPartToLanguageModelPart(
     (part.toolName !== 'web_search' &&
       part.toolName !== 'web_scrape' &&
       part.toolName !== 'deploy' &&
+      part.toolName !== 'read_file' &&
       part.toolName !== 'versioning')
   ) {
     return part;
