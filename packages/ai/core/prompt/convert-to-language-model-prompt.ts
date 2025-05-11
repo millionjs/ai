@@ -428,7 +428,9 @@ function convertToolCallPartToLanguageModelPart(
 ) {
   if (
     part.type !== 'tool-result' ||
-    (part.toolName !== 'web_search' && part.toolName !== 'web_scrape')
+    (part.toolName !== 'web_search' &&
+      part.toolName !== 'web_scrape' &&
+      part.toolName !== 'versioning')
   ) {
     return part;
   }
