@@ -136,7 +136,7 @@ export function useChat({
   fetch,
   keepLastMessageOnError = true,
   experimental_throttle: throttleWaitMs,
-  onToolCallMaxTokensFinish
+  onToolCallMaxTokensFinish,
 }: UseChatOptions & {
   key?: string;
 
@@ -265,6 +265,7 @@ By default, it's set to 1, which means that only a single LLM call is made.
         chatMessages[chatMessages.length - 1]?.toolInvocations,
       );
       let lastMessage = chatMessages.at(-1)!;
+      let error: Error | undefined;
 
       try {
         const abortController = new AbortController();
@@ -377,6 +378,7 @@ By default, it's set to 1, which means that only a single LLM call is made.
         }
 
         if (onError && err instanceof Error) {
+          error = err;
           onError(err);
         }
 
@@ -388,6 +390,7 @@ By default, it's set to 1, which means that only a single LLM call is made.
       // and assistant has not answered yet
       const messages = messagesRef.current;
       if (
+        !error &&
         shouldResubmitMessages({
           originalMaxToolInvocationStep: maxStep,
           originalMessageCount: messageCount,
@@ -425,7 +428,7 @@ By default, it's set to 1, which means that only a single LLM call is made.
       keepLastMessageOnError,
       throttleWaitMs,
       chatId,
-      onToolCallMaxTokensFinish
+      onToolCallMaxTokensFinish,
     ],
   );
 

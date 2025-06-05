@@ -54,13 +54,19 @@ export async function processChatResponse({
 }) {
   const replaceLastMessage = false;
   // const replaceLastMessage = lastMessage?.role === 'assistant';
-  let step = replaceLastMessage
-    ? 1 +
-      // find max step in existing tool invocations:
-      (lastMessage!.toolInvocations?.reduce((max, toolInvocation) => {
-        return Math.max(max, toolInvocation.step ?? 0);
-      }, 0) ?? 0)
-    : 0;
+  // let step = replaceLastMessage
+  //   ? 1 +
+  //     // find max step in existing tool invocations:
+  //     (lastMessage!.toolInvocations?.reduce((max, toolInvocation) => {
+  //       return Math.max(max, toolInvocation.step ?? 0);
+  //     }, 0) ?? 0)
+  //   : 0;
+  let step =
+    1 +
+    // find max step in existing tool invocations:
+    (lastMessage!.toolInvocations?.reduce((max, toolInvocation) => {
+      return Math.max(max, toolInvocation.step ?? 0);
+    }, 0) ?? 0);
 
   const message: UIMessage = replaceLastMessage
     ? structuredClone(lastMessage!)
