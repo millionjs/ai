@@ -432,7 +432,8 @@ function convertToolCallPartToLanguageModelPart(
       part.toolName !== 'web_scrape' &&
       part.toolName !== 'deploy' &&
       part.toolName !== 'read_file' &&
-      part.toolName !== 'versioning')
+      part.toolName !== 'versioning' &&
+      part.toolName !== 'generate_image')
   ) {
     return part;
   }
