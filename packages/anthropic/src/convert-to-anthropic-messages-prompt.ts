@@ -2,22 +2,23 @@ import {
   LanguageModelV1CallWarning,
   LanguageModelV1Message,
   LanguageModelV1Prompt,
-  LanguageModelV1ProviderMetadata,
   UnsupportedFunctionalityError,
 } from '@ai-sdk/provider';
 import { convertUint8ArrayToBase64 } from '@ai-sdk/provider-utils';
 import {
   AnthropicAssistantMessage,
-  AnthropicCacheControl,
   AnthropicMessagesPrompt,
   AnthropicUserMessage,
 } from './anthropic-api-types';
+import { AnthropicProviderOptions } from './anthropic-messages-language-model';
 
 export function convertToAnthropicMessagesPrompt({
+  providerOptions,
   prompt,
   sendReasoning,
   warnings,
 }: {
+  providerOptions?: AnthropicProviderOptions;
   prompt: LanguageModelV1Prompt;
   sendReasoning: boolean;
   warnings: LanguageModelV1CallWarning[];
@@ -31,18 +32,9 @@ export function convertToAnthropicMessagesPrompt({
   let system: AnthropicMessagesPrompt['system'] = undefined;
   const messages: AnthropicMessagesPrompt['messages'] = [];
 
-  function getCacheControl(
-    providerMetadata: LanguageModelV1ProviderMetadata | undefined,
-  ): AnthropicCacheControl | undefined {
-    const anthropic = providerMetadata?.anthropic;
-
-    // allow both cacheControl and cache_control:
-    const cacheControlValue =
-      anthropic?.cacheControl ?? anthropic?.cache_control;
-
-    // Pass through value assuming it is of the correct type.
-    // The Anthropic API will validate the value.
-    return cacheControlValue as AnthropicCacheControl | undefined;
+  // Get whether cacheControl is enabled from providerOptions
+  function getCacheControl() {
+    return providerOptions?.cacheControl;
   }
 
   for (let i = 0; i < blocks.length; i++) {
@@ -59,10 +51,10 @@ export function convertToAnthropicMessagesPrompt({
           });
         }
 
-        system = block.messages.map(({ content, providerMetadata }) => ({
+        system = block.messages.map(({ content }) => ({
           type: 'text',
           text: content,
-          cache_control: getCacheControl(providerMetadata),
+          cache_control: getCacheControl(),
         }));
 
         break;
@@ -84,11 +76,11 @@ export function convertToAnthropicMessagesPrompt({
                 // check also if the message has cache control.
                 const isLastPart = j === content.length - 1;
 
-                const cacheControl =
-                  getCacheControl(part.providerMetadata) ??
-                  (isLastPart
-                    ? getCacheControl(message.providerMetadata)
-                    : undefined);
+                const cacheControl = getCacheControl()
+                  ? isLastPart && isLastBlock
+                    ? getCacheControl()
+                    : undefined
+                  : undefined;
 
                 switch (part.type) {
                   case 'text': {
@@ -161,11 +153,11 @@ export function convertToAnthropicMessagesPrompt({
                 // check also if the message has cache control.
                 const isLastPart = i === content.length - 1;
 
-                const cacheControl =
-                  getCacheControl(part.providerMetadata) ??
-                  (isLastPart
-                    ? getCacheControl(message.providerMetadata)
-                    : undefined);
+                const cacheControl = getCacheControl()
+                  ? isLastPart && isLastBlock
+                    ? getCacheControl()
+                    : undefined
+                  : undefined;
 
                 const toolResultContent =
                   part.content != null
@@ -250,11 +242,11 @@ export function convertToAnthropicMessagesPrompt({
             // cache control: first add cache control from part.
             // for the last part of a message,
             // check also if the message has cache control.
-            const cacheControl =
-              getCacheControl(part.providerMetadata) ??
-              (isLastContentPart
-                ? getCacheControl(message.providerMetadata)
-                : undefined);
+            const cacheControl = getCacheControl()
+              ? isLastContentPart && isLastMessage && isLastBlock
+                ? getCacheControl()
+                : undefined
+              : undefined;
 
             switch (part.type) {
               case 'text': {
@@ -279,7 +271,7 @@ export function convertToAnthropicMessagesPrompt({
                     type: 'thinking',
                     thinking: part.text,
                     signature: part.signature!,
-                    cache_control: cacheControl,
+                    cache_control: undefined, // thinking is not cached
                   });
                 } else {
                   warnings.push({
@@ -295,7 +287,7 @@ export function convertToAnthropicMessagesPrompt({
                 anthropicContent.push({
                   type: 'redacted_thinking',
                   data: part.data,
-                  cache_control: cacheControl,
+                  cache_control: undefined, // redacted reasoning is not cached
                 });
                 break;
               }

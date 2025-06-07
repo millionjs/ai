@@ -116,18 +116,19 @@ export class AnthropicMessagesLanguageModel implements LanguageModelV1 {
       });
     }
 
-    const { prompt: messagesPrompt, betas: messagesBetas } =
-      convertToAnthropicMessagesPrompt({
-        prompt,
-        sendReasoning: this.settings.sendReasoning ?? true,
-        warnings,
-      });
-
     const anthropicOptions = parseProviderOptions({
       provider: 'anthropic',
       providerOptions,
       schema: anthropicProviderOptionsSchema,
     });
+
+    const { prompt: messagesPrompt, betas: messagesBetas } =
+      convertToAnthropicMessagesPrompt({
+        providerOptions: anthropicOptions,
+        prompt,
+        sendReasoning: this.settings.sendReasoning ?? true,
+        warnings,
+      });
 
     const isThinking = anthropicOptions?.thinking?.type === 'enabled';
     const thinkingBudget = anthropicOptions?.thinking?.budgetTokens;
@@ -198,7 +199,7 @@ export class AnthropicMessagesLanguageModel implements LanguageModelV1 {
           tool_choice,
           toolWarnings,
           betas: toolsBetas,
-        } = prepareTools(mode);
+        } = prepareTools(mode, anthropicOptions);
 
         return {
           args: { ...baseArgs, tools, tool_choice },
@@ -739,6 +740,7 @@ const anthropicProviderOptionsSchema = z.object({
       budgetTokens: z.number().optional(),
     })
     .optional(),
+  cacheControl: z.object({ type: z.literal('ephemeral') }).optional(),
 });
 
 export type AnthropicProviderOptions = z.infer<
