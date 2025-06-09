@@ -64,8 +64,11 @@ export function convertToAnthropicMessagesPrompt({
         // combines all user and tool messages in this block into a single message:
         const anthropicContent: AnthropicUserMessage['content'] = [];
 
-        for (const message of block.messages) {
+        for (let i = 0; i < block.messages.length; i++) {
+          const message = block.messages[i];
           const { role, content } = message;
+          const isLastMessage = i === block.messages.length - 1;
+
           switch (role) {
             case 'user': {
               for (let j = 0; j < content.length; j++) {
@@ -77,7 +80,7 @@ export function convertToAnthropicMessagesPrompt({
                 const isLastPart = j === content.length - 1;
 
                 const cacheControl = getCacheControl()
-                  ? isLastPart && isLastBlock
+                  ? isLastPart && isLastBlock && isLastMessage
                     ? getCacheControl()
                     : undefined
                   : undefined;
@@ -154,7 +157,7 @@ export function convertToAnthropicMessagesPrompt({
                 const isLastPart = i === content.length - 1;
 
                 const cacheControl = getCacheControl()
-                  ? isLastPart && isLastBlock
+                  ? isLastPart && isLastBlock && isLastMessage
                     ? getCacheControl()
                     : undefined
                   : undefined;
