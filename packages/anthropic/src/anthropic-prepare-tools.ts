@@ -121,14 +121,20 @@ export function prepareTools(
     case 'auto':
       return {
         tools: anthropicTools,
-        tool_choice: { type: 'auto' },
+        tool_choice: {
+          type: 'auto',
+          disable_parallel_tool_use: providerOptions?.disableParallelToolUse,
+        },
         toolWarnings,
         betas,
       };
     case 'required':
       return {
         tools: anthropicTools,
-        tool_choice: { type: 'any' },
+        tool_choice: {
+          type: 'any',
+          disable_parallel_tool_use: providerOptions?.disableParallelToolUse,
+        },
         toolWarnings,
         betas,
       };
@@ -138,7 +144,11 @@ export function prepareTools(
     case 'tool':
       return {
         tools: anthropicTools,
-        tool_choice: { type: 'tool', name: toolChoice.toolName },
+        tool_choice: {
+          type: 'tool',
+          name: toolChoice.toolName,
+          disable_parallel_tool_use: providerOptions?.disableParallelToolUse,
+        },
         toolWarnings,
         betas,
       };

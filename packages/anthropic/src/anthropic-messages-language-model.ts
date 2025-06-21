@@ -741,6 +741,7 @@ const anthropicProviderOptionsSchema = z.object({
     })
     .optional(),
   cacheControl: z.object({ type: z.literal('ephemeral') }).optional(),
+  disableParallelToolUse: z.boolean().optional(),
 });
 
 export type AnthropicProviderOptions = z.infer<
