@@ -117,6 +117,9 @@ export async function processChatResponse({
     { text: string; step: number; index: number; toolName: string }
   > = {};
 
+  // keep track of ongoing tool call executions
+  const ongoingToolCalls = new Map<string, Promise<void>>();
+
   let usage: LanguageModelUsage = {
     completionTokens: NaN,
     promptTokens: NaN,
@@ -309,27 +312,62 @@ export async function processChatResponse({
 
       execUpdate();
 
-      // invoke the onToolCall callback if it exists. This is blocking.
-      // In the future we should make this non-blocking, which
-      // requires additional state management for error handling etc.
+      // invoke the onToolCall callback if it exists. This is now non-blocking.
       if (onToolCall) {
-        const result = await onToolCall({ toolCall: value });
-        if (result != null) {
-          const invocation = {
-            state: 'result',
-            step,
-            ...value,
-            result,
-          } as const;
+        const toolCallPromise = (async () => {
+          try {
+            const result = await onToolCall({ toolCall: value });
+            if (result != null) {
+              const resultInvocation = {
+                state: 'result',
+                step,
+                ...value,
+                result,
+              } as const;
 
-          // store the result in the tool invocation
-          message.toolInvocations![message.toolInvocations!.length - 1] =
-            invocation;
+              // find the tool invocation in the array and update it
+              const toolInvocationIndex = message.toolInvocations!.findIndex(
+                inv => inv.toolCallId === value.toolCallId,
+              );
 
-          updateToolInvocationPart(value.toolCallId, invocation);
+              if (toolInvocationIndex !== -1) {
+                message.toolInvocations![toolInvocationIndex] =
+                  resultInvocation;
+                updateToolInvocationPart(value.toolCallId, resultInvocation);
+                execUpdate();
+              }
+            }
+          } catch (error) {
+            // Handle tool call execution error
+            const errorInvocation = {
+              state: 'result',
+              step,
+              ...value,
+              result: {
+                error:
+                  error instanceof Error
+                    ? error.message
+                    : 'Tool call execution failed',
+              },
+            } as const;
 
-          execUpdate();
-        }
+            const toolInvocationIndex = message.toolInvocations!.findIndex(
+              inv => inv.toolCallId === value.toolCallId,
+            );
+
+            if (toolInvocationIndex !== -1) {
+              message.toolInvocations![toolInvocationIndex] = errorInvocation;
+              updateToolInvocationPart(value.toolCallId, errorInvocation);
+              execUpdate();
+            }
+          } finally {
+            // Clean up the ongoing tool call tracking
+            ongoingToolCalls.delete(value.toolCallId);
+          }
+        })();
+
+        // Track the ongoing tool call execution
+        ongoingToolCalls.set(value.toolCallId, toolCallPromise);
       }
     },
     onToolResultPart(value) {
@@ -442,6 +480,11 @@ export async function processChatResponse({
       });
     },
   });
+
+  // Wait for all ongoing tool calls to complete before finishing
+  if (ongoingToolCalls.size > 0) {
+    await Promise.allSettled(Array.from(ongoingToolCalls.values()));
+  }
 
   onFinish?.({ message, finishReason, usage, providerMetadata });
 }
