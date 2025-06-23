@@ -335,6 +335,11 @@ By default, it's set to 1, which means that only a single LLM call is made.
           },
           onResponse,
           onUpdate({ message, data, replaceLastMessage }) {
+            // Check if the request has been aborted, if so, do nothing
+            if (abortController.signal.aborted) {
+              return;
+            }
+
             mutateStatus('streaming');
 
             throttledMutate(
