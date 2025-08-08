@@ -54,6 +54,7 @@ import { OutputStrategy, getOutputStrategy } from './output-strategy';
 import { ObjectStreamPart, StreamObjectResult } from './stream-object-result';
 import { validateObjectGenerationInput } from './validate-object-generation-input';
 import { stringifyForTelemetry } from '../prompt/stringify-for-telemetry';
+import { UnsupportedModelVersionError } from '../../errors/unsupported-model-version-error';
 
 const originalGenerateId = createIdGenerator({ prefix: 'aiobj', size: 24 });
 
@@ -411,6 +412,10 @@ export function streamObject<SCHEMA, PARTIAL, RESULT, ELEMENT_STREAM>({
       now?: () => number;
     };
   }): StreamObjectResult<PARTIAL, RESULT, ELEMENT_STREAM> {
+  if (typeof model === 'string' || model.specificationVersion !== 'v1') {
+    throw new UnsupportedModelVersionError();
+  }
+
   validateObjectGenerationInput({
     output,
     mode,
@@ -935,6 +940,8 @@ class DefaultStreamObjectResult<PARTIAL, RESULT, ELEMENT_STREAM>
                         'ai.response.model': response.modelId,
                         'ai.response.timestamp':
                           response.timestamp.toISOString(),
+                        'ai.response.providerMetadata':
+                          JSON.stringify(providerMetadata),
 
                         'ai.usage.promptTokens': finalUsage.promptTokens,
                         'ai.usage.completionTokens':
@@ -965,6 +972,8 @@ class DefaultStreamObjectResult<PARTIAL, RESULT, ELEMENT_STREAM>
                         'ai.response.object': {
                           output: () => JSON.stringify(object),
                         },
+                        'ai.response.providerMetadata':
+                          JSON.stringify(providerMetadata),
                       },
                     }),
                   );

@@ -1,5 +1,17 @@
 # @ai-sdk/openai-compatible
 
+## 0.2.16
+
+### Patch Changes
+
+- 919ce07: Modified the validation logic for tool_calls for the index parameter to be optional.
+
+## 0.2.15
+
+### Patch Changes
+
+- 2a8a853: Allow passing config to chat models
+
 ## 0.2.14
 
 ### Patch Changes

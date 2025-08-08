@@ -12,15 +12,15 @@ import {
   ToolCallPart,
   ToolResultPart,
 } from '../prompt';
+import { ProviderOptions } from '../types/provider-metadata';
 import { attachmentsToParts } from './attachments-to-parts';
-import { MessageConversionError } from './message-conversion-error';
 
 /**
 Converts an array of messages from useChat into an array of CoreMessages that can be used
 with the AI core functions (e.g. `streamText`).
  */
 export function convertToCoreMessages<TOOLS extends ToolSet = never>(
-  messages: Array<Omit<Message, 'id'>>,
+  messages: Array<Omit<Message, 'id'> & { providerOptions?: ProviderOptions }>,
   options?: { tools?: TOOLS },
 ) {
   const tools = options?.tools ?? ({} as TOOLS);
@@ -29,13 +29,15 @@ export function convertToCoreMessages<TOOLS extends ToolSet = never>(
   for (let i = 0; i < messages.length; i++) {
     const message = messages[i];
     const isLastMessage = i === messages.length - 1;
-    const { role, content, experimental_attachments } = message;
+    const { role, content, experimental_attachments, providerOptions } =
+      message;
 
     switch (role) {
       case 'system': {
         coreMessages.push({
           role: 'system',
           content,
+          providerOptions,
         });
         break;
       }
@@ -50,7 +52,8 @@ export function convertToCoreMessages<TOOLS extends ToolSet = never>(
                   ...attachmentsToParts(experimental_attachments),
                 ]
               : content,
-          });
+            providerOptions,
+        });
         } else {
           const textParts = message.parts
             .filter(part => part.type === 'text')
@@ -64,6 +67,7 @@ export function convertToCoreMessages<TOOLS extends ToolSet = never>(
             content: experimental_attachments
               ? [...textParts, ...attachmentsToParts(experimental_attachments)]
               : textParts,
+            providerOptions,
           });
         }
         break;
@@ -125,6 +129,7 @@ export function convertToCoreMessages<TOOLS extends ToolSet = never>(
             coreMessages.push({
               role: 'assistant',
               content,
+              providerOptions,
             });
 
             // check if there are tool invocations with results in the block
@@ -147,16 +152,17 @@ export function convertToCoreMessages<TOOLS extends ToolSet = never>(
                 role: 'tool',
                 content: stepInvocations.map(
                   (toolInvocation): ToolResultPart => {
-                    if (!('result' in toolInvocation)) {
-                      throw new MessageConversionError({
-                        originalMessage: message,
-                        message:
-                          'ToolInvocation must have a result: ' +
-                          JSON.stringify(toolInvocation),
-                      });
-                    }
+                    // if (!('result' in toolInvocation)) {
+                    //   throw new MessageConversionError({
+                    //     originalMessage: message,
+                    //     message:
+                    //       'ToolInvocation must have a result: ' +
+                    //       JSON.stringify(toolInvocation),
+                    //   });
+                    // }
 
-                    const { toolCallId, toolName, result } = toolInvocation;
+                    const { toolCallId, toolName } = toolInvocation;
+                    const result = (toolInvocation as any).result || undefined;
 
                     const tool = tools[toolName];
                     return tool?.experimental_toToolResultContent != null
@@ -176,6 +182,7 @@ export function convertToCoreMessages<TOOLS extends ToolSet = never>(
                         };
                   },
                 ),
+                providerOptions,
               });
             }
 
@@ -218,7 +225,7 @@ export function convertToCoreMessages<TOOLS extends ToolSet = never>(
         const toolInvocations = message.toolInvocations;
 
         if (toolInvocations == null || toolInvocations.length === 0) {
-          coreMessages.push({ role: 'assistant', content });
+          coreMessages.push({ role: 'assistant', content, providerOptions });
           break;
         }
 
@@ -251,22 +258,24 @@ export function convertToCoreMessages<TOOLS extends ToolSet = never>(
                 }),
               ),
             ],
+            providerOptions,
           });
 
           // tool message with tool results
           coreMessages.push({
             role: 'tool',
             content: stepInvocations.map((toolInvocation): ToolResultPart => {
-              if (!('result' in toolInvocation)) {
-                throw new MessageConversionError({
-                  originalMessage: message,
-                  message:
-                    'ToolInvocation must have a result: ' +
-                    JSON.stringify(toolInvocation),
-                });
-              }
+              // if (!('result' in toolInvocation)) {
+              // throw new MessageConversionError({
+              //   originalMessage: message,
+              //   message:
+              //     'ToolInvocation must have a result: ' +
+              //     JSON.stringify(toolInvocation),
+              // });
+              // }
 
-              const { toolCallId, toolName, result } = toolInvocation;
+              const { toolCallId, toolName } = toolInvocation;
+              const result = (toolInvocation as any).result || undefined;
 
               const tool = tools[toolName];
               return tool?.experimental_toToolResultContent != null
@@ -285,11 +294,12 @@ export function convertToCoreMessages<TOOLS extends ToolSet = never>(
                     result,
                   };
             }),
+            providerOptions,
           });
         }
 
         if (content && !isLastMessage) {
-          coreMessages.push({ role: 'assistant', content });
+          coreMessages.push({ role: 'assistant', content, providerOptions });
         }
 
         break;
@@ -301,11 +311,6 @@ export function convertToCoreMessages<TOOLS extends ToolSet = never>(
       }
 
       default: {
-        const _exhaustiveCheck: never = role;
-        throw new MessageConversionError({
-          originalMessage: message,
-          message: `Unsupported role: ${_exhaustiveCheck}`,
-        });
       }
     }
   }

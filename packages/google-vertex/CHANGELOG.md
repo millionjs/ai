@@ -1,5 +1,28 @@
 # @ai-sdk/google-vertex
 
+## 2.2.27
+
+### Patch Changes
+
+- aeaf1cd: fix missing systemInstruction in object-tool mode. The object-tool generation mode now properly includes system instructions in API requests, matching the behavior of regular and object-json modes
+- Updated dependencies [aeaf1cd]
+  - @ai-sdk/google@1.2.22
+
+## 2.2.26
+
+### Patch Changes
+
+- Updated dependencies [ce1625d]
+  - @ai-sdk/google@1.2.21
+
+## 2.2.25
+
+### Patch Changes
+
+- Updated dependencies [d532ac3]
+- Updated dependencies [08ee85d]
+  - @ai-sdk/google@1.2.20
+
 ## 2.2.24
 
 ### Patch Changes

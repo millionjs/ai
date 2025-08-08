@@ -4,11 +4,13 @@ import {
   UnsupportedFunctionalityError,
 } from '@ai-sdk/provider';
 import { AnthropicTool, AnthropicToolChoice } from './anthropic-api-types';
+import { AnthropicProviderOptions } from './anthropic-messages-language-model';
 
 export function prepareTools(
   mode: Parameters<LanguageModelV1['doGenerate']>[0]['mode'] & {
     type: 'regular';
   },
+  providerOptions: AnthropicProviderOptions | undefined,
 ): {
   tools: Array<AnthropicTool> | undefined;
   tool_choice: AnthropicToolChoice | undefined;
@@ -27,13 +29,18 @@ export function prepareTools(
 
   const anthropicTools: AnthropicTool[] = [];
 
-  for (const tool of tools) {
+  for (let i = 0; i < tools.length; i++) {
+    const tool = tools[i];
+    const isLastTool = i === tools.length - 1;
+    const cacheControl = isLastTool ? providerOptions?.cacheControl : undefined;
+
     switch (tool.type) {
       case 'function':
         anthropicTools.push({
           name: tool.name,
           description: tool.description,
           input_schema: tool.parameters,
+          cache_control: cacheControl,
         });
         break;
       case 'provider-defined':
@@ -114,14 +121,20 @@ export function prepareTools(
     case 'auto':
       return {
         tools: anthropicTools,
-        tool_choice: { type: 'auto' },
+        tool_choice: {
+          type: 'auto',
+          disable_parallel_tool_use: providerOptions?.disableParallelToolUse,
+        },
         toolWarnings,
         betas,
       };
     case 'required':
       return {
         tools: anthropicTools,
-        tool_choice: { type: 'any' },
+        tool_choice: {
+          type: 'any',
+          disable_parallel_tool_use: providerOptions?.disableParallelToolUse,
+        },
         toolWarnings,
         betas,
       };
@@ -131,7 +144,11 @@ export function prepareTools(
     case 'tool':
       return {
         tools: anthropicTools,
-        tool_choice: { type: 'tool', name: toolChoice.toolName },
+        tool_choice: {
+          type: 'tool',
+          name: toolChoice.toolName,
+          disable_parallel_tool_use: providerOptions?.disableParallelToolUse,
+        },
         toolWarnings,
         betas,
       };

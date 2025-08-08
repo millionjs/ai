@@ -1,5 +1,6 @@
 import {
   LanguageModelV1FinishReason,
+  LanguageModelV1ProviderMetadata,
   LanguageModelV1Source,
 } from '@ai-sdk/provider';
 import { FetchFunction, ToolCall, ToolResult } from '@ai-sdk/provider-utils';
@@ -21,7 +22,8 @@ It is optional for backwards compatibility.
 export type ToolInvocation =
   | ({ state: 'partial-call'; step?: number } & ToolCall<string, any>)
   | ({ state: 'call'; step?: number } & ToolCall<string, any>)
-  | ({ state: 'result'; step?: number } & ToolResult<string, any, any>);
+  | ({ state: 'result'; step?: number } & ToolResult<string, any, any>)
+  | ({ state: 'max-tokens'; step?: number } & ToolResult<string, any, any>);
 
 /**
  * An attachment that can be sent along with a message.
@@ -331,6 +333,7 @@ either synchronously or asynchronously.
     options: {
       usage: LanguageModelUsage;
       finishReason: LanguageModelV1FinishReason;
+      providerMetadata?: LanguageModelV1ProviderMetadata;
     },
   ) => void;
 

@@ -4,7 +4,7 @@ import { Tracer } from '@opentelemetry/api';
 import { ToolExecutionError } from '../../errors';
 import { CoreMessage } from '../prompt/message';
 import { assembleOperationName } from '../telemetry/assemble-operation-name';
-import { recordSpan } from '../telemetry/record-span';
+import { recordErrorOnSpan, recordSpan } from '../telemetry/record-span';
 import { selectTelemetryAttributes } from '../telemetry/select-telemetry-attributes';
 import { TelemetrySettings } from '../telemetry/telemetry-settings';
 import {
@@ -79,6 +79,11 @@ export type SingleRequestTextStreamPart<TOOLS extends ToolSet> =
   | {
       type: 'error';
       error: unknown;
+    }
+  | {
+      type: 'tool-call-max-tokens-finish';
+      toolCallId: string;
+      toolName: string;
     };
 
 export function runToolsTransformation<TOOLS extends ToolSet>({
@@ -139,6 +144,8 @@ export function runToolsTransformation<TOOLS extends ToolSet>({
     }
   }
 
+  let toolCallId = "";
+  let toolName = "";
   // forward stream
   const forwardStream = new TransformStream<
     LanguageModelV1StreamPart,
@@ -177,6 +184,8 @@ export function runToolsTransformation<TOOLS extends ToolSet>({
 
         // forward with less information:
         case 'tool-call-delta': {
+          toolCallId = chunk.toolCallId;
+          toolName = chunk.toolName;
           if (toolCallStreaming) {
             if (!activeToolCalls[chunk.toolCallId]) {
               controller.enqueue({
@@ -200,6 +209,8 @@ export function runToolsTransformation<TOOLS extends ToolSet>({
 
         // process tool call:
         case 'tool-call': {
+          toolCallId = chunk.toolCallId;
+          toolName = chunk.toolName;
           try {
             const toolCall = await parseToolCall({
               toolCall: chunk,
@@ -274,6 +285,7 @@ export function runToolsTransformation<TOOLS extends ToolSet>({
                       }
                     },
                     (error: any) => {
+                      recordErrorOnSpan(span, error);
                       toolResultsStreamController!.enqueue({
                         type: 'error',
                         error: new ToolExecutionError({
@@ -308,6 +320,15 @@ export function runToolsTransformation<TOOLS extends ToolSet>({
             usage: calculateLanguageModelUsage(chunk.usage),
             experimental_providerMetadata: chunk.providerMetadata,
           };
+          if (chunk.finishReason === "length") {
+            controller.enqueue({
+              type: "tool-call-max-tokens-finish" as any,
+              toolCallId,
+              toolName,
+            });
+          }
+          toolCallId = "";
+          toolName = "";
           break;
         }
 
@@ -333,6 +354,7 @@ export function runToolsTransformation<TOOLS extends ToolSet>({
         generatorStream.pipeThrough(forwardStream).pipeTo(
           new WritableStream({
             write(chunk) {
+              
               controller.enqueue(chunk);
             },
             close() {

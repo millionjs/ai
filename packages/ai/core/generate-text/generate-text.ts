@@ -3,6 +3,7 @@ import { Tracer } from '@opentelemetry/api';
 import { InvalidArgumentError } from '../../errors/invalid-argument-error';
 import { NoOutputSpecifiedError } from '../../errors/no-output-specified-error';
 import { ToolExecutionError } from '../../errors/tool-execution-error';
+import { UnsupportedModelVersionError } from '../../errors/unsupported-model-version-error';
 import { CoreAssistantMessage, CoreMessage } from '../prompt';
 import { CallSettings } from '../prompt/call-settings';
 import { convertToLanguageModelPrompt } from '../prompt/convert-to-language-model-prompt';
@@ -11,10 +12,11 @@ import { prepareRetries } from '../prompt/prepare-retries';
 import { prepareToolsAndToolChoice } from '../prompt/prepare-tools-and-tool-choice';
 import { Prompt } from '../prompt/prompt';
 import { standardizePrompt } from '../prompt/standardize-prompt';
+import { stringifyForTelemetry } from '../prompt/stringify-for-telemetry';
 import { assembleOperationName } from '../telemetry/assemble-operation-name';
 import { getBaseTelemetryAttributes } from '../telemetry/get-base-telemetry-attributes';
 import { getTracer } from '../telemetry/get-tracer';
-import { recordSpan } from '../telemetry/record-span';
+import { recordErrorOnSpan, recordSpan } from '../telemetry/record-span';
 import { selectTelemetryAttributes } from '../telemetry/select-telemetry-attributes';
 import { TelemetrySettings } from '../telemetry/telemetry-settings';
 import { LanguageModel, ToolChoice } from '../types';
@@ -36,7 +38,6 @@ import { ToolCallArray } from './tool-call';
 import { ToolCallRepairFunction } from './tool-call-repair';
 import { ToolResultArray } from './tool-result';
 import { ToolSet } from './tool-set';
-import { stringifyForTelemetry } from '../prompt/stringify-for-telemetry';
 
 const originalGenerateId = createIdGenerator({
   prefix: 'aitxt',
@@ -244,6 +245,10 @@ A function that attempts to repair a tool call that failed to parse.
       currentDate?: () => Date;
     };
   }): Promise<GenerateTextResult<TOOLS, OUTPUT>> {
+  if (typeof model === 'string' || model.specificationVersion !== 'v1') {
+    throw new UnsupportedModelVersionError();
+  }
+
   if (maxSteps < 1) {
     throw new InvalidArgumentError({
       parameter: 'maxSteps',
@@ -433,6 +438,9 @@ A function that attempts to repair a tool call that failed to parse.
                     'ai.response.model': responseData.modelId,
                     'ai.response.timestamp':
                       responseData.timestamp.toISOString(),
+                    'ai.response.providerMetadata': JSON.stringify(
+                      result.providerMetadata,
+                    ),
 
                     'ai.usage.promptTokens': result.usage.promptTokens,
                     'ai.usage.completionTokens': result.usage.completionTokens,
@@ -610,6 +618,9 @@ A function that attempts to repair a tool call that failed to parse.
             'ai.usage.promptTokens': currentModelResponse.usage.promptTokens,
             'ai.usage.completionTokens':
               currentModelResponse.usage.completionTokens,
+            'ai.response.providerMetadata': JSON.stringify(
+              currentModelResponse.providerMetadata,
+            ),
           },
         }),
       );
@@ -722,6 +733,7 @@ async function executeTools<TOOLS extends ToolSet>({
 
             return result;
           } catch (error) {
+            recordErrorOnSpan(span, error);
             throw new ToolExecutionError({
               toolCallId,
               toolName,

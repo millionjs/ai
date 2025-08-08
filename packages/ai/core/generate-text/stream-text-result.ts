@@ -396,4 +396,9 @@ export type TextStreamPart<TOOLS extends ToolSet> =
   | {
       type: 'error';
       error: unknown;
+    }
+  | {
+      type: 'tool-call-max-tokens-finish';
+      toolCallId: string;
+      toolName: string;
     };

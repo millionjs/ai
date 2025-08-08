@@ -91,8 +91,8 @@ export function convertToGoogleGenerativeAIMessages(
       case 'assistant': {
         systemMessagesAllowed = false;
 
-        contents.push({
-          role: 'model',
+        const result = {
+          role: 'model' as const,
           parts: content
             .map(part => {
               switch (part.type) {
@@ -136,7 +136,10 @@ export function convertToGoogleGenerativeAIMessages(
               }
             })
             .filter(part => part !== undefined),
-        });
+        }
+        if (result.parts.length > 0) {
+          contents.push(result);
+        }
         break;
       }
 

@@ -10,6 +10,14 @@ export type ToolResultContent = Array<
       data: string; // base64 encoded png image, e.g. screenshot
       mimeType?: string; // e.g. 'image/png';
     }
+    | {
+      type: 'image'
+      source: {
+        type: 'url'
+        url: string
+      }
+      mimeType?: string; // e.g. 'image/png';
+    }
 >;
 
 export const toolResultContentSchema: z.ZodType<ToolResultContent> = z.array(
@@ -18,6 +26,14 @@ export const toolResultContentSchema: z.ZodType<ToolResultContent> = z.array(
     z.object({
       type: z.literal('image'),
       data: z.string(),
+      mimeType: z.string().optional(),
+    }),
+    z.object({
+      type: z.literal('image'),
+      source: z.object({
+        type: z.literal('url'),
+        url: z.string(),
+      }),
       mimeType: z.string().optional(),
     }),
   ]),
@@ -41,8 +57,13 @@ export function isToolResultContent(
 
     if (part.type === 'image') {
       return (
-        typeof part.data === 'string' &&
-        (part.mimeType === undefined || typeof part.mimeType === 'string')
+        (typeof part.data === 'string' &&
+          (part.mimeType === undefined || typeof part.mimeType === 'string')) ||
+        (typeof part.source === 'object' &&
+          part.source !== null &&
+          typeof part.source.type === 'string' &&
+          part.source.type === 'url' &&
+          typeof part.source.url === 'string')
       );
     }
 

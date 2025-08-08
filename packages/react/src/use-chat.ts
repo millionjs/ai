@@ -4,6 +4,7 @@ import type {
   CreateMessage,
   JSONValue,
   Message,
+  ToolInvocation,
   UIMessage,
   UseChatOptions,
 } from '@ai-sdk/ui-utils';
@@ -135,6 +136,7 @@ export function useChat({
   fetch,
   keepLastMessageOnError = true,
   experimental_throttle: throttleWaitMs,
+  onToolCallMaxTokensFinish,
 }: UseChatOptions & {
   key?: string;
 
@@ -169,6 +171,13 @@ A maximum number is required to prevent infinite loops in the case of misconfigu
 By default, it's set to 1, which means that only a single LLM call is made.
  */
   maxSteps?: number;
+
+  onToolCallMaxTokensFinish?: (options: {
+    type: 'tool-call-max-tokens-finish';
+    toolCallId: string;
+    toolName: string;
+    toolInvocation: ToolInvocation;
+  }) => void;
 } = {}): UseChatHelpers & {
   addToolResult: ({
     toolCallId,
@@ -255,6 +264,8 @@ By default, it's set to 1, which means that only a single LLM call is made.
       const maxStep = extractMaxToolInvocationStep(
         chatMessages[chatMessages.length - 1]?.toolInvocations,
       );
+      let lastMessage = chatMessages.at(-1)!;
+      let error: Error | undefined;
 
       try {
         const abortController = new AbortController();
@@ -324,6 +335,11 @@ By default, it's set to 1, which means that only a single LLM call is made.
           },
           onResponse,
           onUpdate({ message, data, replaceLastMessage }) {
+            // Check if the request has been aborted, if so, do nothing
+            if (abortController.signal.aborted) {
+              return;
+            }
+
             mutateStatus('streaming');
 
             throttledMutate(
@@ -344,11 +360,15 @@ By default, it's set to 1, which means that only a single LLM call is made.
             }
           },
           onToolCall,
-          onFinish,
+          onFinish(message, options) {
+            onFinish?.(message, options);
+            lastMessage = message as UIMessage;
+          },
           generateId,
           fetch,
           lastMessage: chatMessages[chatMessages.length - 1],
           requestType,
+          onToolCallMaxTokensFinish,
         });
 
         abortControllerRef.current = null;
@@ -363,6 +383,7 @@ By default, it's set to 1, which means that only a single LLM call is made.
         }
 
         if (onError && err instanceof Error) {
+          error = err;
           onError(err);
         }
 
@@ -374,13 +395,18 @@ By default, it's set to 1, which means that only a single LLM call is made.
       // and assistant has not answered yet
       const messages = messagesRef.current;
       if (
+        !error &&
         shouldResubmitMessages({
           originalMaxToolInvocationStep: maxStep,
           originalMessageCount: messageCount,
           maxSteps,
           messages,
+          lastMessage,
         })
       ) {
+        if (lastMessage) {
+          messages[messages.length - 1] = lastMessage;
+        }
         await triggerRequest({ messages });
       }
     },
@@ -407,6 +433,7 @@ By default, it's set to 1, which means that only a single LLM call is made.
       keepLastMessageOnError,
       throttleWaitMs,
       chatId,
+      onToolCallMaxTokensFinish,
     ],
   );
 

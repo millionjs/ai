@@ -1,5 +1,17 @@
 # @ai-sdk/openai
 
+## 1.3.24
+
+### Patch Changes
+
+- 5b20d4b: feat (provider/openai): gpt 5 support
+
+## 1.3.23
+
+### Patch Changes
+
+- c3f5106: fix (provider/openai): handle responses api errors
+
 ## 1.3.22
 
 ### Patch Changes

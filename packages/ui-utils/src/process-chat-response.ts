@@ -1,4 +1,7 @@
-import { LanguageModelV1FinishReason } from '@ai-sdk/provider';
+import {
+  LanguageModelV1FinishReason,
+  LanguageModelV1ProviderMetadata,
+} from '@ai-sdk/provider';
 import { generateId as generateIdFunction } from '@ai-sdk/provider-utils';
 import {
   calculateLanguageModelUsage,
@@ -20,6 +23,7 @@ export async function processChatResponse({
   stream,
   update,
   onToolCall,
+  onToolCallMaxTokensFinish,
   onFinish,
   generateId = generateIdFunction,
   getCurrentDate = () => new Date(),
@@ -36,22 +40,36 @@ export async function processChatResponse({
     message: UIMessage | undefined;
     finishReason: LanguageModelV1FinishReason;
     usage: LanguageModelUsage;
+    providerMetadata: LanguageModelV1ProviderMetadata | undefined;
   }) => void;
   generateId?: () => string;
   getCurrentDate?: () => Date;
   lastMessage: UIMessage | undefined;
+  onToolCallMaxTokensFinish?: (options: {
+    type: 'tool-call-max-tokens-finish';
+    toolCallId: string;
+    toolName: string;
+    toolInvocation: ToolInvocation;
+  }) => void;
 }) {
-  const replaceLastMessage = lastMessage?.role === 'assistant';
-  let step = replaceLastMessage
-    ? 1 +
-      // find max step in existing tool invocations:
-      (lastMessage.toolInvocations?.reduce((max, toolInvocation) => {
-        return Math.max(max, toolInvocation.step ?? 0);
-      }, 0) ?? 0)
-    : 0;
+  const replaceLastMessage = false;
+  // const replaceLastMessage = lastMessage?.role === 'assistant';
+  // let step = replaceLastMessage
+  //   ? 1 +
+  //     // find max step in existing tool invocations:
+  //     (lastMessage!.toolInvocations?.reduce((max, toolInvocation) => {
+  //       return Math.max(max, toolInvocation.step ?? 0);
+  //     }, 0) ?? 0)
+  //   : 0;
+  let step =
+    1 +
+    // find max step in existing tool invocations:
+    (lastMessage!.toolInvocations?.reduce((max, toolInvocation) => {
+      return Math.max(max, toolInvocation.step ?? 0);
+    }, 0) ?? 0);
 
   const message: UIMessage = replaceLastMessage
-    ? structuredClone(lastMessage)
+    ? structuredClone(lastMessage!)
     : {
         id: generateId(),
         createdAt: getCurrentDate(),
@@ -99,11 +117,17 @@ export async function processChatResponse({
     { text: string; step: number; index: number; toolName: string }
   > = {};
 
+  // keep track of ongoing tool call executions
+  const ongoingToolCalls = new Map<string, Promise<void>>();
+
   let usage: LanguageModelUsage = {
     completionTokens: NaN,
     promptTokens: NaN,
     totalTokens: NaN,
   };
+
+  let providerMetadata: LanguageModelV1ProviderMetadata | undefined = undefined;
+
   let finishReason: LanguageModelV1FinishReason = 'unknown';
 
   function execUpdate() {
@@ -288,27 +312,62 @@ export async function processChatResponse({
 
       execUpdate();
 
-      // invoke the onToolCall callback if it exists. This is blocking.
-      // In the future we should make this non-blocking, which
-      // requires additional state management for error handling etc.
+      // invoke the onToolCall callback if it exists. This is now non-blocking.
       if (onToolCall) {
-        const result = await onToolCall({ toolCall: value });
-        if (result != null) {
-          const invocation = {
-            state: 'result',
-            step,
-            ...value,
-            result,
-          } as const;
+        const toolCallPromise = (async () => {
+          try {
+            const result = await onToolCall({ toolCall: value });
+            if (result != null) {
+              const resultInvocation = {
+                state: 'result',
+                step,
+                ...value,
+                result,
+              } as const;
 
-          // store the result in the tool invocation
-          message.toolInvocations![message.toolInvocations!.length - 1] =
-            invocation;
+              // find the tool invocation in the array and update it
+              const toolInvocationIndex = message.toolInvocations!.findIndex(
+                inv => inv.toolCallId === value.toolCallId,
+              );
 
-          updateToolInvocationPart(value.toolCallId, invocation);
+              if (toolInvocationIndex !== -1) {
+                message.toolInvocations![toolInvocationIndex] =
+                  resultInvocation;
+                updateToolInvocationPart(value.toolCallId, resultInvocation);
+                execUpdate();
+              }
+            }
+          } catch (error) {
+            // Handle tool call execution error
+            const errorInvocation = {
+              state: 'result',
+              step,
+              ...value,
+              result: {
+                error:
+                  error instanceof Error
+                    ? error.message
+                    : 'Tool call execution failed',
+              },
+            } as const;
 
-          execUpdate();
-        }
+            const toolInvocationIndex = message.toolInvocations!.findIndex(
+              inv => inv.toolCallId === value.toolCallId,
+            );
+
+            if (toolInvocationIndex !== -1) {
+              message.toolInvocations![toolInvocationIndex] = errorInvocation;
+              updateToolInvocationPart(value.toolCallId, errorInvocation);
+              execUpdate();
+            }
+          } finally {
+            // Clean up the ongoing tool call tracking
+            ongoingToolCalls.delete(value.toolCallId);
+          }
+        })();
+
+        // Track the ongoing tool call execution
+        ongoingToolCalls.set(value.toolCallId, toolCallPromise);
       }
     },
     onToolResultPart(value) {
@@ -378,11 +437,54 @@ export async function processChatResponse({
       if (value.usage != null) {
         usage = calculateLanguageModelUsage(value.usage);
       }
+      if (value.providerMetadata != null) {
+        providerMetadata = value.providerMetadata;
+      }
     },
     onErrorPart(error) {
       throw new Error(error);
     },
+    onToolCallMaxTokensFinishPart(value) {
+      const partialToolCall = partialToolCalls[value?.toolCallId];
+
+      const { value: partialArgs } = parsePartialJson(partialToolCall?.text);
+
+      let error = `One of the tool call arguments was too long. Try recalling the tool with a shorter parameter.`;
+      if (value.toolName === 'edit_code') {
+        error = `One of the tool call arguments was too long, most likely code_edit. Try recalling the tool with a shorter edit. You can write half of code_edit in this tool call and the other half in the next one.`;
+      }
+      const invocation = {
+        state: 'result',
+        step: partialToolCall?.step,
+        toolCallId: value.toolCallId,
+        toolName: value.toolName,
+        args: partialArgs || {},
+        result: {
+          max_tokens_error: error,
+        },
+      } as const;
+
+      if (partialToolCall?.index !== undefined) {
+        message.toolInvocations![partialToolCall.index] = invocation;
+      }
+
+      updateToolInvocationPart(value.toolCallId, invocation);
+
+      execUpdate();
+
+      onToolCallMaxTokensFinish?.({
+        type: 'tool-call-max-tokens-finish',
+        toolCallId: value.toolCallId,
+        toolName: value.toolName,
+        toolInvocation: invocation,
+      });
+    },
   });
 
-  onFinish?.({ message, finishReason, usage });
+  // Wait for all ongoing tool calls to complete before finishing
+  if (ongoingToolCalls.size > 0) {
+    await Promise.allSettled(Array.from(ongoingToolCalls.values()));
+  }
+
+  onFinish?.({ message, finishReason, usage, providerMetadata });
 }

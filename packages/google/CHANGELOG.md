@@ -1,5 +1,24 @@
 # @ai-sdk/google
 
+## 1.2.22
+
+### Patch Changes
+
+- aeaf1cd: fix missing systemInstruction in object-tool mode. The object-tool generation mode now properly includes system instructions in API requests, matching the behavior of regular and object-json modes
+
+## 1.2.21
+
+### Patch Changes
+
+- ce1625d: removes (unsupported) `additionalProperties` from the Schema sent in the request payloads to Google APIs
+
+## 1.2.20
+
+### Patch Changes
+
+- d532ac3: Support tool schemas that allow additional properties (e.g `z.record(z.string())`)
+- 08ee85d: feat(providers/google): Add support for Gemini 2.5 Pro and Gemini 2.5 Flash (now stable)
+
 ## 1.2.19
 
 ### Patch Changes

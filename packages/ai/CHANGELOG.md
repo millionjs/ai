@@ -1,5 +1,23 @@
 # ai
 
+## 4.3.19
+
+### Patch Changes
+
+- 849af1c: feat(ai): Record tool call errors on tool call spans recorded in `generateText` and `streamText`.
+
+## 4.3.18
+
+### Patch Changes
+
+- 37d93f4: fix (ai): throw error for v2 models or string model ids
+
+## 4.3.17
+
+### Patch Changes
+
+- a288694: Expose provider metadata as an attribute on exported OTEL spans
+
 ## 4.3.16
 
 ### Patch Changes

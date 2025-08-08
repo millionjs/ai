@@ -36,6 +36,7 @@ import { injectJsonInstruction } from './inject-json-instruction';
 import { getOutputStrategy } from './output-strategy';
 import { validateObjectGenerationInput } from './validate-object-generation-input';
 import { stringifyForTelemetry } from '../prompt/stringify-for-telemetry';
+import { UnsupportedModelVersionError } from '../../errors/unsupported-model-version-error';
 
 const originalGenerateId = createIdGenerator({ prefix: 'aiobj', size: 24 });
 
@@ -399,6 +400,10 @@ export async function generateObject<SCHEMA, RESULT>({
       currentDate?: () => Date;
     };
   }): Promise<GenerateObjectResult<RESULT>> {
+  if (typeof model === 'string' || model.specificationVersion !== 'v1') {
+    throw new UnsupportedModelVersionError();
+  }
+
   validateObjectGenerationInput({
     output,
     mode,
@@ -572,7 +577,9 @@ export async function generateObject<SCHEMA, RESULT>({
                       'ai.response.model': responseData.modelId,
                       'ai.response.timestamp':
                         responseData.timestamp.toISOString(),
-
+                      'ai.response.providerMetadata': JSON.stringify(
+                        result.providerMetadata,
+                      ),
                       'ai.usage.promptTokens': result.usage.promptTokens,
                       'ai.usage.completionTokens':
                         result.usage.completionTokens,
@@ -698,7 +705,9 @@ export async function generateObject<SCHEMA, RESULT>({
                       'ai.response.model': responseData.modelId,
                       'ai.response.timestamp':
                         responseData.timestamp.toISOString(),
-
+                      'ai.response.providerMetadata': JSON.stringify(
+                        result.providerMetadata,
+                      ),
                       'ai.usage.promptTokens': result.usage.promptTokens,
                       'ai.usage.completionTokens':
                         result.usage.completionTokens,

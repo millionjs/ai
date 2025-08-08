@@ -2,5 +2,6 @@ packages:
   - 'apps/*'
   - 'packages/*'
   - 'tools/*'
-  - 'examples/*'
-  - 'packages/ai/tests/e2e/next-server'
+  - '!packages/solid'
+  - '!packages/svelte'
+  - '!packages/vue'

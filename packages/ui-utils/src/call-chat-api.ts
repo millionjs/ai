@@ -1,6 +1,12 @@
 import { processChatResponse } from './process-chat-response';
 import { processChatTextResponse } from './process-chat-text-response';
-import { IdGenerator, JSONValue, UIMessage, UseChatOptions } from './types';
+import {
+  IdGenerator,
+  JSONValue,
+  ToolInvocation,
+  UIMessage,
+  UseChatOptions,
+} from './types';
 
 // use function to allow for mocking in tests:
 const getOriginalFetch = () => fetch;
@@ -21,6 +27,7 @@ export async function callChatApi({
   fetch = getOriginalFetch(),
   lastMessage,
   requestType = 'generate',
+  onToolCallMaxTokensFinish,
 }: {
   api: string;
   body: Record<string, any>;
@@ -41,6 +48,12 @@ export async function callChatApi({
   fetch: ReturnType<typeof getOriginalFetch> | undefined;
   lastMessage: UIMessage | undefined;
   requestType?: 'generate' | 'resume';
+  onToolCallMaxTokensFinish?: (options: {
+    type: 'tool-call-max-tokens-finish';
+    toolCallId: string;
+    toolName: string;
+    toolInvocation: ToolInvocation;
+  }) => void;
 }) {
   const request =
     requestType === 'resume'
@@ -105,11 +118,12 @@ export async function callChatApi({
         update: onUpdate,
         lastMessage,
         onToolCall,
-        onFinish({ message, finishReason, usage }) {
+        onFinish({ message, finishReason, usage, providerMetadata }) {
           if (onFinish && message != null) {
-            onFinish(message, { usage, finishReason });
+            onFinish(message, { usage, finishReason, providerMetadata });
           }
         },
+        onToolCallMaxTokensFinish,
         generateId,
       });
       return;

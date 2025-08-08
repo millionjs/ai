@@ -1,6 +1,7 @@
 ---
 title: Get started with Computer Use
 description: Get started with Claude's Computer Use capabilities with the AI SDK
+tags: ['computer-use', 'tools']
 ---
 
 # Get started with Computer Use
@@ -83,7 +84,7 @@ First, ensure you have the AI SDK and [Anthropic AI SDK provider](/providers/ai-
 
 <Snippet text="pnpm add ai @ai-sdk/anthropic" />
 
-You can add Computer Use to your AI SDK applications using provider-defined tools. These tools accept various input parameters (like display height and width in the case of the computer tool) and then require that you define an execute function.
+You can add Computer Use to your AI SDK applications using provider-defined-client tools. These tools accept various input parameters (like display height and width in the case of the computer tool) and then require that you define an execute function.
 
 Here's how you could set up the Computer Tool with the AI SDK:
 
@@ -110,7 +111,7 @@ const computerTool = anthropic.tools.computer_20241022({
   experimental_toToolResultContent(result) {
     return typeof result === 'string'
       ? [{ type: 'text', text: result }]
-      : [{ type: 'image', data: result.data, mimeType: 'image/png' }];
+      : [{ type: 'image', data: result.data, mediaType: 'image/png' }];
   },
 });
 ```
@@ -138,7 +139,7 @@ const result = await generateText({
   tools: { computer: computerTool },
 });
 
-console.log(response.text);
+console.log(result.text);
 ```
 
 For streaming responses, use `streamText` to receive updates in real-time:

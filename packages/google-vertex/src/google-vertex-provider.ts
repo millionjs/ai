@@ -1,4 +1,5 @@
-import { LanguageModelV1, ProviderV1, ImageModelV1 } from '@ai-sdk/provider';
+import { GoogleGenerativeAILanguageModel } from '@ai-sdk/google/internal';
+import { ImageModelV1, LanguageModelV1, ProviderV1 } from '@ai-sdk/provider';
 import {
   FetchFunction,
   generateId,
@@ -6,22 +7,21 @@ import {
   Resolvable,
   withoutTrailingSlash,
 } from '@ai-sdk/provider-utils';
-import {
-  GoogleVertexModelId,
-  GoogleVertexSettings,
-} from './google-vertex-settings';
+import { GoogleVertexConfig } from './google-vertex-config';
+import { GoogleVertexEmbeddingModel } from './google-vertex-embedding-model';
 import {
   GoogleVertexEmbeddingModelId,
   GoogleVertexEmbeddingSettings,
 } from './google-vertex-embedding-settings';
-import { GoogleVertexEmbeddingModel } from './google-vertex-embedding-model';
-import { GoogleGenerativeAILanguageModel } from '@ai-sdk/google/internal';
 import { GoogleVertexImageModel } from './google-vertex-image-model';
 import {
   GoogleVertexImageModelId,
   GoogleVertexImageSettings,
 } from './google-vertex-image-settings';
-import { GoogleVertexConfig } from './google-vertex-config';
+import {
+  GoogleVertexModelId,
+  GoogleVertexSettings,
+} from './google-vertex-settings';
 import { isSupportedFileUrl } from './google-vertex-supported-file-url';
 
 export interface GoogleVertexProvider extends ProviderV1 {
@@ -138,6 +138,8 @@ export function createVertex(
       ...createConfig('chat'),
       generateId: options.generateId ?? generateId,
       isSupportedUrl: isSupportedFileUrl,
+      projectId: loadVertexProject(),
+      location: loadVertexLocation(),
     });
   };
 
